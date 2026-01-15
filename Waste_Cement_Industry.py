@@ -12,19 +12,22 @@ import matplotlib.pyplot as plt
 from shapely import wkt  # necessário para ler WKT
 import numpy as np
 
+path = r"C:\Users\otto.hebeda\OneDrive - epe.gov.br\Documentos\Resíduos - projetos\Residuos na produção de cimento\Dados"
+
+
 #%%
 # ================================================================
 # 1. Ler shapefile dos municípios
 # ================================================================
-gdf_mun = gpd.read_file("BR_Municipios_2024.shp")
+gdf_mun = gpd.read_file(path+"/BR_Municipios_2024.shp")
 gdf_mun["CD_MUN"] = gdf_mun["CD_MUN"].astype(str).str.zfill(7)
 
 #%%
 # ================================================================
 # 2. Ler os potenciais energéticos (MSW + Agro)
 # ================================================================
-df_msw = pd.read_csv("MSW_Energy_potential.csv")
-df_agro = pd.read_csv("AgroWaste_Energy_potential.csv")
+df_msw = pd.read_csv(path+"/MSW_Energy_potential.csv")
+df_agro = pd.read_csv(path+"/AgroWaste_Energy_potential.csv")
 
 df_msw["CD_MUN"] = df_msw["CD_MUN"].astype(str).str.zfill(7)
 df_agro["CD_MUN"] = df_agro["CD_MUN"].astype(str).str.zfill(7)
@@ -46,7 +49,7 @@ gdf_merge = gdf_mun.merge(df_final, on="CD_MUN", how="left")
 # ================================================================
 # 3. Ler arquivo Fabricas_geo com a coluna "Georreferenciamento"
 # ================================================================
-df_fab = pd.read_csv("Fabricas_geo.csv")
+df_fab = pd.read_csv(path+"/Fabricas_geo.csv")
 
 # Separar latitude e longitude
 df_fab[["lat", "lon"]] = df_fab["Georreferenciamento"].str.split(",", expand=True)
@@ -107,14 +110,15 @@ ktoe_to_gj = 41868
 Energy_intensity_CP = 3500
 
 """Importing values - Urban waste"""
-Residuos_coletados = pd.read_csv('Total_residuos_publicos_domiciliares.csv')
+Residuos_coletados = pd.read_csv(path+'/Total_residuos_publicos_domiciliares.csv')
+
 Residuos_coletados['Total coletado (kt)'] = Residuos_coletados['Total coletado (t)']/1000
 Residuos_coletados['Residuos/habitante'] = Residuos_coletados['Total coletado (t)']/Residuos_coletados['Populacao total']
 Residuos_coletados = Residuos_coletados.sort_values('Total coletado (t)')
 Residuos_coletados['Total coletado (log kt)'] = np.log10(Residuos_coletados ['Total coletado (kt)'])
 
 """Importing values - DF with plants, their capacity, their location, the cities within the radius and the amount of waste each city generates"""
-DF_plant_waste_by_city= pd.read_csv('Intersection_radius_cement_plants_R03_v3.csv')
+DF_plant_waste_by_city= pd.read_csv(path+'/Intersection_radius_cement_plants_R03_v3.csv')
 DF_plant_waste_by_city['Cap__Mensal__scs_'] = DF_plant_waste_by_city['Cap__Mensal__scs_'].str.replace(',','')
 DF_plant_waste_by_city['Cap__Mensal__scs_'] = DF_plant_waste_by_city['Cap__Mensal__scs_'].str.replace('sacos','')
 DF_plant_waste_by_city['Cap__Mensal__scs_'] = DF_plant_waste_by_city['Cap__Mensal__scs_'].str.replace('\n','')
@@ -141,7 +145,7 @@ for planta in Capacidade_plantas.index:
        pass
 
 """Cement production in each Federal Unity"""
-Producao_UF_2019 = pd.read_csv('producao_cimento_UF_2019.csv', sep=';') #Ajuste é feito passando o restante da produção para as plantas
+Producao_UF_2019 = pd.read_csv(path+'/producao_cimento_UF_2019.csv', sep=';') #Ajuste é feito passando o restante da produção para as plantas
 Producao_clinquer_2019 = 63000*.71 #kt
 
 """Production of each plant"""
@@ -161,7 +165,7 @@ for planta in Producao_plantas.index:
 Producao_plantas['Producao (kt)'] =Producao_plantas['Producao (kt)'].astype(float)
 Producao_plantas['Producao clinquer (kt)'] =Producao_plantas['Producao clinquer (kt)'].astype(float)       
 
-Producao_plantas.to_excel('producao_planta_cimento_2022.xlsx')
+Producao_plantas.to_excel(path+'/producao_planta_cimento_2022.xlsx')
 
 """Energy Demand in each plant"""
 Energy_demand_plant = Producao_plantas['Producao clinquer (kt)']*Energy_intensity_CP*1
@@ -429,7 +433,7 @@ df_cost = df_cost[cols_out]
 pd.set_option("display.float_format", lambda x: f"{x:,.2f}")
 print(df_cost.head())
 
-df_cost.to_csv("costs_residue_substitution_per_plant.csv", index=False)
+df_cost.to_csv(path+"/costs_residue_substitution_per_plant.csv", index=False)
 
 
 #%%
@@ -470,7 +474,7 @@ gdf_fab["Reducao_kgCO2"] = (
 df_final = gdf_fab.merge(df_radius, on="Name", how="left")
 df_final = gdf_fab.merge(df_cost,on="Name",how="left")
 
-output_path = "resultados_por_planta.xlsx"
+output_path = path+"/resultados_por_planta.xlsx"
 
 df_final.to_excel(output_path, index=False)
 
