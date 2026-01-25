@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from shapely import wkt  # necessário para ler WKT
 import numpy as np
 
-path = r"C:\Users\otto.hebeda\OneDrive - epe.gov.br\Documentos\Resíduos - projetos\Residuos na produção de cimento\Dados"
+path = r"C:\Users\ottoh\OneDrive\Meus artigos\Resíduos na produção de cimento"
 
 
 #%%
@@ -99,6 +99,7 @@ plt.show()
 
 
 
+
 #%%
 
 """Parameters"""
@@ -145,7 +146,7 @@ for planta in Capacidade_plantas.index:
        pass
 
 """Cement production in each Federal Unity"""
-Producao_UF_2019 = pd.read_csv(path+'/producao_cimento_UF_2019.csv', sep=';') #Ajuste é feito passando o restante da produção para as plantas
+Producao_UF_2019 = pd.read_csv(path+'/producao_cimento_UF_2019.csv', sep=',') #Ajuste é feito passando o restante da produção para as plantas
 Producao_clinquer_2019 = 63000*.71 #kt
 
 """Production of each plant"""
@@ -173,9 +174,6 @@ Energy_demand_plant = Energy_demand_plant.to_frame()
 Energy_demand_plant= Energy_demand_plant.rename({'Producao clinquer (kt)' :'Energy demand (GJ)'},axis= 1)
 Energy_demand_plant['Name'] = Energy_demand_plant.index
 #%%
-# === assumir que gdf_fab e gdf_merge já existem ===
-# (gdf_merge já reprojectado se necessário; vamos manter a reprojeção depois do merge)
-
 # --- 1) Preparar df_demand (garantir Name + Demand_GJ) ---
 df_demand = Energy_demand_plant.copy()
 
@@ -238,52 +236,105 @@ if n_missing > 0:
 gdf_fab = gdf_fab.to_crs(5880)
 gdf_merge = gdf_merge.to_crs(5880)
 
-# --- 6) Função (mantida igual, mas usando 'Demand_GJ') ---
-def find_radius_for_plant(plant, gdf_polygons, step_km=1, max_radius_km=300):
+# --- 6) CRIAR CÓPIA DA OFERTA DISPONÍVEL (que será reduzida dinamicamente) ---
+gdf_supply = gdf_merge.copy()
+gdf_supply["oferta_disponivel_GJ"] = gdf_supply["potencial_total_GJ"].copy()
+
+# --- 7) Função MODIFICADA para considerar oferta limitada ---
+def find_radius_for_plant(plant, gdf_polygons_supply, step_km=1, max_radius_km=300):
     """
-    Retorna o raio mínimo necessário (km) para suprir 100% da demanda da planta.
+    Retorna o raio mínimo necessário (km) para suprir 100% da demanda da planta,
+    considerando apenas a oferta disponível.
+    Também retorna quais municípios foram usados e quanto foi consumido de cada um.
     """
-    # obter demanda com fallback: se estiver faltando no plant, tentar buscar por Name
     demand = plant.get("Demand_GJ", None)
     if pd.isna(demand) or demand is None:
-        # tentar lookup por nome
         name = plant.get("Name", None)
         if name is not None and name in df_demand["Name"].values:
             demand = float(df_demand.loc[df_demand["Name"] == name, "Demand_GJ"].iloc[0])
         else:
-            # sem demanda -> retornar None e pular
-            return None
+            return None, []
 
     radius = step_km * 1000  # metros
     
     while radius <= max_radius_km * 1000:
         buffer = plant.geometry.buffer(radius)
-
+        
         # municípios dentro do buffer
-        subset = gdf_polygons[gdf_polygons.intersects(buffer)]
+        subset = gdf_polygons_supply[gdf_polygons_supply.intersects(buffer)].copy()
         
-        total = subset["potencial_total_GJ"].sum()
+        # oferta disponível total no raio
+        total_disponivel = subset["oferta_disponivel_GJ"].sum()
         
-        if total >= demand:
-            return radius / 1000  # retorna km
+        if total_disponivel >= demand:
+            # Alocar a demanda proporcionalmente à oferta disponível de cada município
+            # ou simplesmente consumir sequencialmente até preencher a demanda
+            
+            # Vamos alocar sequencialmente (pode ordenar por proximidade se preferir)
+            demanda_restante = demand
+            alocacoes = []
+            
+            for idx, mun in subset.iterrows():
+                disponivel = mun["oferta_disponivel_GJ"]
+                
+                if demanda_restante <= 0:
+                    break
+                    
+                if disponivel > 0:
+                    consumido = min(disponivel, demanda_restante)
+                    alocacoes.append({
+                        'index': idx,
+                        'consumido_GJ': consumido
+                    })
+                    demanda_restante -= consumido
+            
+            return radius / 1000, alocacoes  # retorna km e lista de alocações
         
         radius += step_km * 1000
 
-    return None
+    return None, []
 
-# --- 7) Aplicar para todas as plantas ---
-results = []
+# --- 8) Aplicar para todas as plantas, ORDENANDO por algum critério ---
+# Você pode ordenar por demanda (maior primeiro), ou por outra prioridade
+# Aqui vamos ordenar por demanda decrescente (plantas maiores têm prioridade)
 
 gdf_fab = gdf_fab[gdf_fab["Demand_GJ"].fillna(0) > 0].copy()
+gdf_fab = gdf_fab.sort_values("Demand_GJ", ascending=False).reset_index(drop=True)
+
+results = []
 
 for idx, plant in gdf_fab.iterrows():
-    r = find_radius_for_plant(plant, gdf_merge)
-    results.append({"Name": plant["Name"], "radius_km": r})
+    r, alocacoes = find_radius_for_plant(plant, gdf_supply)
+    
+    # Registrar resultado
+    demanda_atendida = sum([a['consumido_GJ'] for a in alocacoes])
+    results.append({
+        "Name": plant["Name"],
+        "Demand_GJ": plant["Demand_GJ"],
+        "radius_km": r,
+        "demanda_atendida_GJ": demanda_atendida,
+        "percentual_atendido": (demanda_atendida / plant["Demand_GJ"] * 100) if plant["Demand_GJ"] > 0 else 0
+    })
+    
+    # ATUALIZAR a oferta disponível (reduzir conforme foi consumido)
+    for aloc in alocacoes:
+        gdf_supply.loc[aloc['index'], 'oferta_disponivel_GJ'] -= aloc['consumido_GJ']
+    
+    # Log de progresso
+    if r is not None:
+        print(f"Planta '{plant['Name']}': raio {r:.1f} km, atendida {demanda_atendida:.0f}/{plant['Demand_GJ']:.0f} GJ ({demanda_atendida/plant['Demand_GJ']*100:.1f}%)")
+    else:
+        print(f"Planta '{plant['Name']}': NÃO foi possível atender a demanda de {plant['Demand_GJ']:.0f} GJ mesmo com raio máximo")
 
 df_radius = pd.DataFrame(results)
 
-print(df_radius.head())
-
+# --- 9) Verificar oferta final ---
+print(f"\n=== RESUMO ===")
+print(f"Oferta original total: {gdf_merge['potencial_total_GJ'].sum():.0f} GJ")
+print(f"Oferta restante: {gdf_supply['oferta_disponivel_GJ'].sum():.0f} GJ")
+print(f"Oferta consumida: {gdf_merge['potencial_total_GJ'].sum() - gdf_supply['oferta_disponivel_GJ'].sum():.0f} GJ")
+print(f"Demanda total das plantas: {df_radius['Demand_GJ'].sum():.0f} GJ")
+print(f"Demanda atendida: {df_radius['demanda_atendida_GJ'].sum():.0f} GJ")
 #%%
 import pandas as pd
 import numpy as np

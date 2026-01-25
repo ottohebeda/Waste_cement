@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_f1b88484854120b320573c6d829894c8 {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_f1b88484854120b320573c6d829894c8" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_f1b88484854120b320573c6d829894c8 = L.map(
+                "map_f1b88484854120b320573c6d829894c8",
+                {
+                    center: [-16.098306053535353, -44.64530169090909],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 4,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_cb3f046d98a71630b8084c799f9b2c68 = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 20,
+  "maxNativeZoom": 20,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_cb3f046d98a71630b8084c799f9b2c68.addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            var circle_marker_4d6a7368031fa9f3e3ccd302cafa8bdd = L.circleMarker(
+                [-8.7982679, -63.7694979],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_4d6a7368031fa9f3e3ccd302cafa8bdd.bindTooltip(
+                `<div>
+                     VOTORANTIM - Porto Velho
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_c2b79209b69ae451ef030982c05c46e5 = L.circleMarker(
+                [-3.1506066, -59.9698324],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_c2b79209b69ae451ef030982c05c46e5.bindTooltip(
+                `<div>
+                     MIZU - Manaus
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_173e6cb5e7dc2ff260c2ee4e38ba7691 = L.circleMarker(
+                [-1.5865531, -48.7861473],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_173e6cb5e7dc2ff260c2ee4e38ba7691.bindTooltip(
+                `<div>
+                     VOTORANTIM - Barcarena
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_40782538a7daaa4cf0d9107c5c0fac32 = L.circleMarker(
+                [-4.3239024, -56.2227487],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_40782538a7daaa4cf0d9107c5c0fac32.bindTooltip(
+                `<div>
+                     NASSAU - Itacimpasa
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_80dad642d3832aa7590acecf90b11921 = L.circleMarker(
+                [-1.2181783, -47.1888007],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_80dad642d3832aa7590acecf90b11921.bindTooltip(
+                `<div>
+                     NASSAU - Cibrasa
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_fc0508ae3787aab673f2a7ae62b9cb2f = L.circleMarker(
+                [-1.0468079, -47.1571398],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_fc0508ae3787aab673f2a7ae62b9cb2f.bindTooltip(
+                `<div>
+                     VOTORANTIM - Primavera
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_190b103778b53aba3fadeb5fc8379c85 = L.circleMarker(
+                [-6.4346586, -48.4296343],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_190b103778b53aba3fadeb5fc8379c85.bindTooltip(
+                `<div>
+                     VOTORANTIM - Xambioá
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_28b7151e11b5e21e2c96a666b4321783 = L.circleMarker(
+                [-4.891915, -47.387231],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_28b7151e11b5e21e2c96a666b4321783.bindTooltip(
+                `<div>
+                     Cimento Açai - Açailândia
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_a3ef3a5a5bc7e4778c3ef91fdba7439a = L.circleMarker(
+                [-2.910044, -44.325804],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_a3ef3a5a5bc7e4778c3ef91fdba7439a.bindTooltip(
+                `<div>
+                     ICIBRA - ITAQUI/Bacabeira-Ma
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_98017eb70530bc00891900091bb415f7 = L.circleMarker(
+                [-2.635926, -44.313543],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_98017eb70530bc00891900091bb415f7.bindTooltip(
+                `<div>
+                     Bravo - São Luis/MA
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_07393e547d1e7fcd0b9e7299f1c21ce3 = L.circleMarker(
+                [-2.638208, -44.3103343],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_07393e547d1e7fcd0b9e7299f1c21ce3.bindTooltip(
+                `<div>
+                     VOTORANTIM -São Luis
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_8be29a09117646c576ea0735dc49d2d8 = L.circleMarker(
+                [-4.5263723, -44.0425694],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_8be29a09117646c576ea0735dc49d2d8.bindTooltip(
+                `<div>
+                     NASSAU-Itapicuru
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_df132e19ed27abda7bec8aa7e6c379e8 = L.circleMarker(
+                [-6.9569929, -40.524069],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_df132e19ed27abda7bec8aa7e6c379e8.bindTooltip(
+                `<div>
+                     NASSAU-Itapissuma
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1e5938e130e793c9725d45c0c087ace4 = L.circleMarker(
+                [-3.6888926, -40.3753781],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_1e5938e130e793c9725d45c0c087ace4.bindTooltip(
+                `<div>
+                     VOTORANTIM -Sobral
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_b030e58b2b5c8166b90d0c882b1cd455 = L.circleMarker(
+                [-5.0736959, -37.7159786],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_b030e58b2b5c8166b90d0c882b1cd455.bindTooltip(
+                `<div>
+                     MIZU - Baraúnas
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_0930426edd45eab4f2328000677b130a = L.circleMarker(
+                [-5.0424256, -37.7731419],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_0930426edd45eab4f2328000677b130a.bindTooltip(
+                `<div>
+                     APODI - Quixeré
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_094c5f0550f27a902d6c75931123202e = L.circleMarker(
+                [-7.33553, -39.3073976],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_094c5f0550f27a902d6c75931123202e.bindTooltip(
+                `<div>
+                     NASSAU-Itapuí
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_b3752a8c65947e8002c97647f2b24386 = L.circleMarker(
+                [-3.6537903, -38.8553273],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_b3752a8c65947e8002c97647f2b24386.bindTooltip(
+                `<div>
+                     VOTORANTIM - Pecém
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_57eb4f4d9d0ffb8426058d6be3f415f8 = L.circleMarker(
+                [-3.6676451, -38.8539863],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_57eb4f4d9d0ffb8426058d6be3f415f8.bindTooltip(
+                `<div>
+                     APODI - Caucaia
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_53c97bb330b2afc3ed7f6601412f6506 = L.circleMarker(
+                [-6.27659, -36.53235],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_53c97bb330b2afc3ed7f6601412f6506.bindTooltip(
+                `<div>
+                     Cimento Elo - Currais Novos
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_d52648246dbb2ad3b9f37f7d3f4404a5 = L.circleMarker(
+                [-5.2058512, -37.3937595],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_d52648246dbb2ad3b9f37f7d3f4404a5.bindTooltip(
+                `<div>
+                     NASSAU-Itapetinga
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_42e652c1c7f4df35aabc2a76fa2b02a8 = L.circleMarker(
+                [-7.3765332, -34.8855186],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_42e652c1c7f4df35aabc2a76fa2b02a8.bindTooltip(
+                `<div>
+                     ELIZABETH - Alhandra/PB
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_7f0c93a0b65641bd772e03629f6ef90f = L.circleMarker(
+                [-7.5239795, -34.8591042],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_7f0c93a0b65641bd772e03629f6ef90f.bindTooltip(
+                `<div>
+                     LafargeHolcim - Caaporã
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_14b98d8cdf2faa242c33030bc34955d0 = L.circleMarker(
+                [-7.129185, -34.8938656],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_14b98d8cdf2faa242c33030bc34955d0.bindTooltip(
+                `<div>
+                     INTERCEMENT* - João Pessoa
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_5fd6d2ad3cae1c38df10744c57b57587 = L.circleMarker(
+                [-7.4771659, -34.8417556],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_5fd6d2ad3cae1c38df10744c57b57587.bindTooltip(
+                `<div>
+                     BRENNAND - Pitimbu/PB
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_738ca0b7b2bb5822f426e3ca58a05b42 = L.circleMarker(
+                [-7.6328618, -34.8643505],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_738ca0b7b2bb5822f426e3ca58a05b42.bindTooltip(
+                `<div>
+                     NASSAU-Itapessoca
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_284ac097b361460ffe2c287e55f24321 = L.circleMarker(
+                [-7.802548, -37.826343],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_284ac097b361460ffe2c287e55f24321.bindTooltip(
+                `<div>
+                     PAJEÚ Cimentos - Carnaíba/PE
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_11736cb7dab4a1a44ed18fe3d7957aa6 = L.circleMarker(
+                [-7.8757458, -34.8523075],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_11736cb7dab4a1a44ed18fe3d7957aa6.bindTooltip(
+                `<div>
+                     VOTORANTIM - Paulista
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1d26db979d7c55a7bb4753a11834c232 = L.circleMarker(
+                [-8.326201, -34.992792],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_1d26db979d7c55a7bb4753a11834c232.bindTooltip(
+                `<div>
+                     Cimento Forte - Suape/PE
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_ed801a4c9dfb7c408f6b96ccc90cacba = L.circleMarker(
+                [-8.328482, -34.9931181],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_ed801a4c9dfb7c408f6b96ccc90cacba.bindTooltip(
+                `<div>
+                     INTERCEMENT* - Cabo (Supensa)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_304d4e84c9cb15acf10adeeb051d714b = L.circleMarker(
+                [-9.762827, -36.14977],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_304d4e84c9cb15acf10adeeb051d714b.bindTooltip(
+                `<div>
+                     INTERCEMENT - São Miguel dos Campos
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_8285467c2cd29af05133852c54debafe = L.circleMarker(
+                [-9.68041, -35.82976],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_8285467c2cd29af05133852c54debafe.bindTooltip(
+                `<div>
+                     CIMENTO ZUMBI - Mal. Deodoro/AL
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_e6e1edf862be43378dbb7eb24ea10d44 = L.circleMarker(
+                [-10.454444, -36.653389],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_e6e1edf862be43378dbb7eb24ea10d44.bindTooltip(
+                `<div>
+                     MIZU - Pacatuba
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_ebccac484889366e41385e02742bd6ac = L.circleMarker(
+                [-10.8264986, -37.1684003],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_ebccac484889366e41385e02742bd6ac.bindTooltip(
+                `<div>
+                     VOTORANTIM - Laranjeiras
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_79e5dbf3d86c7c68688ed2416e4535c8 = L.circleMarker(
+                [-10.8483006, -37.1584009],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_79e5dbf3d86c7c68688ed2416e4535c8.bindTooltip(
+                `<div>
+                     NASSAU-Itaguassú
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_f737455eba7a3e59017d526f8fabd6e8 = L.circleMarker(
+                [-10.5189949, -40.331862],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_f737455eba7a3e59017d526f8fabd6e8.bindTooltip(
+                `<div>
+                     INTERCEMENT - Campo Formoso
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_292bdc5f649f79e8b0abd37085efa96f = L.circleMarker(
+                [-14.1985789, -41.5991318],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_292bdc5f649f79e8b0abd37085efa96f.bindTooltip(
+                `<div>
+                     INTERCEMENT - Brumado
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_b5598cd31bafd91e18b3e3ebaaf08371 = L.circleMarker(
+                [-13.8989257, -41.2816103],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_b5598cd31bafd91e18b3e3ebaaf08371.bindTooltip(
+                `<div>
+                     NASSAU-Itaguarana
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_6a03e53b0a69abd2e112909efbf1c60f = L.circleMarker(
+                [-12.7140293, -38.4856761],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_6a03e53b0a69abd2e112909efbf1c60f.bindTooltip(
+                `<div>
+                     LafargeHolcim - Candeias
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_93c477d47fce29707ef51cb3f77bd075 = L.circleMarker(
+                [-21.1807503, -43.9828634],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_93c477d47fce29707ef51cb3f77bd075.bindTooltip(
+                `<div>
+                     LafargeHolcim - Barroso
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_b5f30179d5c71a28916ff559b4c967bd = L.circleMarker(
+                [-19.4764091, -42.4815345],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_b5f30179d5c71a28916ff559b4c967bd.bindTooltip(
+                `<div>
+                     INTERCEMENT - Santana do Paraíso
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_ab980dd5356f996af56d0808e83cf9d5 = L.circleMarker(
+                [-19.5140019, -44.2765546],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_ab980dd5356f996af56d0808e83cf9d5.bindTooltip(
+                `<div>
+                     BRENNAND - Sete Lagoas
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_a3ed64653e672fd80da01981db68737c = L.circleMarker(
+                [-20.385928, -45.566847],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_a3ed64653e672fd80da01981db68737c.bindTooltip(
+                `<div>
+                     Cimento Uau - Pains/MG
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1fa3709ec9eb2c0a8439fdddf577079d = L.circleMarker(
+                [-20.294248, -45.552298],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_1fa3709ec9eb2c0a8439fdddf577079d.bindTooltip(
+                `<div>
+                     CRH - Arcos
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_ecb57ba8c367bfaba8e8bc2c562f001b = L.circleMarker(
+                [-20.317623, -45.577304],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_ecb57ba8c367bfaba8e8bc2c562f001b.bindTooltip(
+                `<div>
+                     CSN - Arcos
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_4c4bafc0349831828b90f1f87e71a81d = L.circleMarker(
+                [-19.5388617, -44.0779209],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_4c4bafc0349831828b90f1f87e71a81d.bindTooltip(
+                `<div>
+                     CRH - Matozinhos
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_f6528ca8c44cf9e7280501ab8edb3a9d = L.circleMarker(
+                [-19.582087, -44.0559],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_f6528ca8c44cf9e7280501ab8edb3a9d.bindTooltip(
+                `<div>
+                     MIZU - Matozinhos
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_c8bba0a07014b9955d932a51bbda26b3 = L.circleMarker(
+                [-19.627145, -44.02434],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_c8bba0a07014b9955d932a51bbda26b3.bindTooltip(
+                `<div>
+                     INTERCEMENT - Pedro Leopoldo
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_6c3be007d19a4c6011d019ad0cbd1cb5 = L.circleMarker(
+                [-19.8092906, -43.8812721],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_6c3be007d19a4c6011d019ad0cbd1cb5.bindTooltip(
+                `<div>
+                     CRH - Santa Luzia
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_74aa685b013b39d672fb89d78c415d88 = L.circleMarker(
+                [-19.684736, -43.928368],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_74aa685b013b39d672fb89d78c415d88.bindTooltip(
+                `<div>
+                     LIZ - Vespasiano
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_e6aaf0489c775d7cc5a85f1d68f57ce9 = L.circleMarker(
+                [-19.6059849, -44.0607119],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_e6aaf0489c775d7cc5a85f1d68f57ce9.bindTooltip(
+                `<div>
+                     LafargeHolcim - Pedro Leopoldo
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_ea44bf005ebd8455071556f319551f5b = L.circleMarker(
+                [-21.194722, -44.938056],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_ea44bf005ebd8455071556f319551f5b.bindTooltip(
+                `<div>
+                     INTERCEMENT - Ijaci
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_26106cb83384ba9c1597b51962da56b5 = L.circleMarker(
+                [-20.9016604, -43.8197529],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_26106cb83384ba9c1597b51962da56b5.bindTooltip(
+                `<div>
+                     TUPI - Carandaí
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_d9e1fd026afe42cf194ffd9c3858e4ac = L.circleMarker(
+                [-20.7651428, -46.771599],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_d9e1fd026afe42cf194ffd9c3858e4ac.bindTooltip(
+                `<div>
+                     VOTORANTIM - Itaú de Minas
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_c7c1b92bc52de19a611926051943c3fd = L.circleMarker(
+                [-16.6803383, -43.8827848],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_c7c1b92bc52de19a611926051943c3fd.bindTooltip(
+                `<div>
+                     LafargeHolcim - Montes Claros
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_ac7f9f4be84206eb3d0319202ad95193 = L.circleMarker(
+                [-21.9136153, -42.262463],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_ac7f9f4be84206eb3d0319202ad95193.bindTooltip(
+                `<div>
+                     VOTORANTIM - Cantagalo
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_0e6c08925c0dc9889c10e8a7a0474207 = L.circleMarker(
+                [-20.188744, -40.24939],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_0e6c08925c0dc9889c10e8a7a0474207.bindTooltip(
+                `<div>
+                     LafargeHolcim - Serra
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_f6c457a4d8160dd72a946eae6f047283 = L.circleMarker(
+                [-20.7831692, -41.1198948],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_f6c457a4d8160dd72a946eae6f047283.bindTooltip(
+                `<div>
+                     NASSAU-Itabira
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_e934c524dbafe463d3a932b0133a43da = L.circleMarker(
+                [-20.261306, -40.234306],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_e934c524dbafe463d3a932b0133a43da.bindTooltip(
+                `<div>
+                     MIZU - Vitória
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1db95b41f17b9d1f30a73313c2d1d2ff = L.circleMarker(
+                [-22.5212553, -44.1309387],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_1db95b41f17b9d1f30a73313c2d1d2ff.bindTooltip(
+                `<div>
+                     TUPI - Volta Redonda
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_14f6e637424adb590a0469596426098a = L.circleMarker(
+                [-22.5091078, -44.1024256],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_14f6e637424adb590a0469596426098a.bindTooltip(
+                `<div>
+                     CSN - Volta Redonda
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_10888c3b739cd38f8bd1e6ce72b5396c = L.circleMarker(
+                [-22.4896836, -44.0499831],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_10888c3b739cd38f8bd1e6ce72b5396c.bindTooltip(
+                `<div>
+                     VOTORANTIM - Volta Redonda
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_cc7f8c5d5c7106ea396ba07504f1d540 = L.circleMarker(
+                [-22.85975, -43.574306],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_cc7f8c5d5c7106ea396ba07504f1d540.bindTooltip(
+                `<div>
+                     MIZU - Campo Grande
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_dd1c4987b4f09ea6075728d82ee0f9ba = L.circleMarker(
+                [-21.9418215, -42.270906],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_dd1c4987b4f09ea6075728d82ee0f9ba.bindTooltip(
+                `<div>
+                     CRH - Cantagalo
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1fd5ba36d56a9650bc12b0ccc7094641 = L.circleMarker(
+                [-21.9777127, -42.2861517],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_1fd5ba36d56a9650bc12b0ccc7094641.bindTooltip(
+                `<div>
+                     LafargeHolcim - Cantagalo
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1640f87aef371337746bd27043968ad2 = L.circleMarker(
+                [-22.8974928, -43.7316998],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_1640f87aef371337746bd27043968ad2.bindTooltip(
+                `<div>
+                     VOTORANTIM - Santa Cruz
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_ad2830586a82eadde85428231133675d = L.circleMarker(
+                [-22.888697, -43.656115],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_ad2830586a82eadde85428231133675d.bindTooltip(
+                `<div>
+                     LafargeHolcim- Santa Cruz
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_9decacb9c156b1e494a6514d907d03a8 = L.circleMarker(
+                [-23.6320958, -47.5012243],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_9decacb9c156b1e494a6514d907d03a8.bindTooltip(
+                `<div>
+                     VOTORANTIM - Salto de Pirapora
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_c5605caa2b534dc273568d2df83adf0a = L.circleMarker(
+                [-23.5968298, -47.4410038],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_c5605caa2b534dc273568d2df83adf0a.bindTooltip(
+                `<div>
+                     VOTORANTIM - Santa Helena
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_a6e087c44b1e9444f202ae1e9190ee24 = L.circleMarker(
+                [-24.670199, -48.980123],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_a6e087c44b1e9444f202ae1e9190ee24.bindTooltip(
+                `<div>
+                     SUPREMO - Adrianópolis/PR
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_ed037e52d296945a56ec130aacaef75c = L.circleMarker(
+                [-24.5203413, -48.8584971],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_ed037e52d296945a56ec130aacaef75c.bindTooltip(
+                `<div>
+                     INTERCEMENT - Apiaí
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_21be6b798613e2f044688da4ff67de4b = L.circleMarker(
+                [-23.4473239, -47.5394994],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_21be6b798613e2f044688da4ff67de4b.bindTooltip(
+                `<div>
+                     LafargeHolcim - Sorocaba
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_3072223c3027e1410a46ad7f78a57632 = L.circleMarker(
+                [-23.441885, -46.242201],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_3072223c3027e1410a46ad7f78a57632.bindTooltip(
+                `<div>
+                     TUPI - Mogi das Cruzes
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_700dc898c2c21cc3fa1f56fbf2d736c6 = L.circleMarker(
+                [-23.442389, -46.242389],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_700dc898c2c21cc3fa1f56fbf2d736c6.bindTooltip(
+                `<div>
+                     MIZU - Mogi das Cruzes
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_f5eeb41eb383a5fec3f6232e22786f4b = L.circleMarker(
+                [-24.710653, -48.1191945],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_f5eeb41eb383a5fec3f6232e22786f4b.bindTooltip(
+                `<div>
+                     INTERCEMENT - Cajatí
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_7732c4dec119d2cb5a43517074d43ea2 = L.circleMarker(
+                [-23.84954, -46.3931345],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_7732c4dec119d2cb5a43517074d43ea2.bindTooltip(
+                `<div>
+                     VOTORANTIM* - Cubatão (Suspensa)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_14c5feb2d9329db98d3a3442c1369423 = L.circleMarker(
+                [-23.846489, -46.379339],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_14c5feb2d9329db98d3a3442c1369423.bindTooltip(
+                `<div>
+                     INTERCEMENT - Cubatão
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_857d95c81c9d4ccaeccbe38d8f4c2bca = L.circleMarker(
+                [-24.1622169, -48.3523229],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_857d95c81c9d4ccaeccbe38d8f4c2bca.bindTooltip(
+                `<div>
+                     VOTORANTIM* - Ribeirão (Suspensa)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_6e040fe061003c7dfbab4a3fc717a87e = L.circleMarker(
+                [-23.273221, -46.061037],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_6e040fe061003c7dfbab4a3fc717a87e.bindTooltip(
+                `<div>
+                     INTERCEMENT - Jacareí
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_2411a8dd68ef5a00603f47bd6de0765c = L.circleMarker(
+                [-25.1941389, -49.3280071],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_2411a8dd68ef5a00603f47bd6de0765c.bindTooltip(
+                `<div>
+                     VOTORANTIM - Rio Branco 
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_b98a1d1583e7bd27080cd5ef5feb131c = L.circleMarker(
+                [-25.4576705, -49.6102238],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_b98a1d1583e7bd27080cd5ef5feb131c.bindTooltip(
+                `<div>
+                     ITAMBÉ - Balsa Nova
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_70d2be3552cb4a433f68e57739cf3fd5 = L.circleMarker(
+                [-27.3607709, -49.3435722],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_70d2be3552cb4a433f68e57739cf3fd5.bindTooltip(
+                `<div>
+                     VOTORANTIM - Vidal Ramos
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_9c343c6e63b4de9f25b2531df79888c7 = L.circleMarker(
+                [-28.451312, -48.968589],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_9c343c6e63b4de9f25b2531df79888c7.bindTooltip(
+                `<div>
+                     Pozosul-Capivari de Baixo/SC
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_3f5d9bfbf0468ff5503d09d65f8c2c7b = L.circleMarker(
+                [-26.8800575, -48.7161576],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_3f5d9bfbf0468ff5503d09d65f8c2c7b.bindTooltip(
+                `<div>
+                     VOTORANTIM - Itajaí
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_f63a845fc6df71c5153af61210204243 = L.circleMarker(
+                [-26.8182, -49.157057],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_f63a845fc6df71c5153af61210204243.bindTooltip(
+                `<div>
+                     SUPREMO - Pomerode
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_60b41bc894b74e0d93f084ca5c6e6f12 = L.circleMarker(
+                [-28.2125722, -48.6869538],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_60b41bc894b74e0d93f084ca5c6e6f12.bindTooltip(
+                `<div>
+                     VOTORANTIM - Imbituba
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1722038ae95262fce2a2e44a4541a008 = L.circleMarker(
+                [-29.8445559, -51.1766456],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_1722038ae95262fce2a2e44a4541a008.bindTooltip(
+                `<div>
+                     VOTORANTIM - Esteio
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_499b305787eac0b8d66fde5c87e1f00d = L.circleMarker(
+                [-31.5147366, -53.5608249],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_499b305787eac0b8d66fde5c87e1f00d.bindTooltip(
+                `<div>
+                     VOTORANTIM - Pinheiro Machado
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1bb8daa7869c43bf71e9d5b44aed712c = L.circleMarker(
+                [-29.923971, -51.282156],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_1bb8daa7869c43bf71e9d5b44aed712c.bindTooltip(
+                `<div>
+                     INTERCEMENT - Nova Santa Rita
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_8c1c5352485ad5e97cf368201f4ce0d8 = L.circleMarker(
+                [-31.5853035, -53.671689],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_8c1c5352485ad5e97cf368201f4ce0d8.bindTooltip(
+                `<div>
+                     INTERCEMENT - Candiota
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_3b87d396a217631179cb99c5a0292704 = L.circleMarker(
+                [-20.4756206, -56.7323985],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_3b87d396a217631179cb99c5a0292704.bindTooltip(
+                `<div>
+                     INTERCEMENT - Bodoquena
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_bcc6d2d21b727f240984c3714bcce9aa = L.circleMarker(
+                [-19.00441, -57.6239958],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_bcc6d2d21b727f240984c3714bcce9aa.bindTooltip(
+                `<div>
+                     VOTORANTIM - Corumbá
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_31393ba771d4fa1a076f9860090fd80c = L.circleMarker(
+                [-15.33599, -56.1407969],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_31393ba771d4fa1a076f9860090fd80c.bindTooltip(
+                `<div>
+                     VOTORANTIM- Cuiabá
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_8f98f34f70b9d24e306856d42ccd23ec = L.circleMarker(
+                [-14.6457802, -56.2674344],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_8f98f34f70b9d24e306856d42ccd23ec.bindTooltip(
+                `<div>
+                     VOTORANTIM - Nobres
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_ad191a92f92d955ef277350289bd986d = L.circleMarker(
+                [-16.99987, -49.776887],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_ad191a92f92d955ef277350289bd986d.bindTooltip(
+                `<div>
+                     INTERCEMENT - Cezarina
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_30d8feb92ec8618d9c571e949cc1dcd4 = L.circleMarker(
+                [-17.257952, -49.786478],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_30d8feb92ec8618d9c571e949cc1dcd4.bindTooltip(
+                `<div>
+                     VOTORANTIM - Edealina/GO
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_c36f528cf02841980563e785667c46a7 = L.circleMarker(
+                [-15.7900649, -48.770628],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_c36f528cf02841980563e785667c46a7.bindTooltip(
+                `<div>
+                     LafargeHolcim - Cocalzinho
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_d2c1f6c9c96e5ff0803307b9d3ad175b = L.circleMarker(
+                [-15.5685517, -47.8502333],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_d2c1f6c9c96e5ff0803307b9d3ad175b.bindTooltip(
+                `<div>
+                     CIPLAN - Sobradinho
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_fa11988ae8a90a0ec1f4e91cfa14959d = L.circleMarker(
+                [-15.5877381, -47.8756606],
+                {"bubblingMouseEvents": true, "color": "#3388ff", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3388ff", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 5, "stroke": true, "weight": 3}
+            ).addTo(map_f1b88484854120b320573c6d829894c8);
+        
+    
+            circle_marker_fa11988ae8a90a0ec1f4e91cfa14959d.bindTooltip(
+                `<div>
+                     VOTORANTIM- Sobradinho
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+</script>
+</html>
