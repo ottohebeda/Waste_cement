@@ -14,7 +14,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 
-path = r"C:\Users\ottoh\OneDrive\Meus artigos\Resíduos na produção de cimento"
+path = r"C:\Users\otto.hebeda\OneDrive - epe.gov.br\Documentos\Resíduos - projetos\Residuos na produção de cimento\Dados"
 
 
 #%%
@@ -99,9 +99,6 @@ plt.legend()
 plt.axis("off")
 plt.show()
 
-
-
-
 #%%
 
 """Parameters"""
@@ -148,7 +145,7 @@ for planta in Capacidade_plantas.index:
        pass
 
 """Cement production in each Federal Unity"""
-Producao_UF_2019 = pd.read_csv(path+'/producao_cimento_UF_2019.csv', sep=',') #Ajuste é feito passando o restante da produção para as plantas
+Producao_UF_2019 = pd.read_csv(path+'/producao_cimento_UF_2019.csv', sep = ';') #Ajuste é feito passando o restante da produção para as plantas
 Producao_clinquer_2019 = 63000*.71 #kt
 
 """Production of each plant"""
@@ -563,56 +560,282 @@ df_final.to_excel(output_path, index=False)
 
 print(f"Arquivo exportado com sucesso para: {output_path}")
 #%%
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+from pyomo.environ import ConcreteModel, Var, NonNegativeReals, Objective, Constraint, SolverFactory, value
+from amplpy import modules
+
 # ============================================================
-# 7) NOVO: K-MEANS PARA DEFINIÇÃO DE HUBS (usando CAPEX+OPEX + demanda)
+# 0) PARAMETROS DO PROBLEMA
 # ============================================================
-# A ideia aqui: clusters de plantas para sugerir hubs.
-# Feature set: [x, y, custo_total_anual, demanda]
-# (padronizamos com StandardScaler)
+alpha = 0.5  # percentual de substituição (ex: 30%) -> ajuste aqui
 
-# juntar custo anual no gdf_fab para cluster
-gdf_hub = gdf_fab_m.merge(df_cost[["Name", "Custo_anual_resid_R$"]], on="Name", how="left")
+# Custos unitários (R$/GJ) - use os seus já calculados
+# C_resid = 500/41.868  (R$/GJ)
+# CAPEX_OPEX_R_per_GJ já calculado no seu script
+# C_transp_factor = 0.0066*CAMBIO  (R$/GJ/km)
 
-# features
-gdf_hub["x"] = gdf_hub.geometry.x
-gdf_hub["y"] = gdf_hub.geometry.y
-gdf_hub["Custo_total_R$"] = gdf_hub["Custo_anual_resid_R$"]
+# Aqui vou assumir que essas variáveis já existem no seu ambiente:
+# C_resid, CAPEX_OPEX_R_per_GJ, C_transp_factor
 
-features = gdf_hub[["x", "y", "Custo_total_R$", "Demand_GJ"]].fillna(0)
+C_base_R_per_GJ = float(C_resid) + float(CAPEX_OPEX_R_per_GJ)  # custo do resíduo "na porta", sem transporte
 
-scaler = StandardScaler()
-X = scaler.fit_transform(features)
+# ============================================================
+# 1) PREPARAR DADOS (PLANTAS E MUNICIPIOS)
+# ============================================================
+# Garantir CRS métrico
+if str(gdf_fab.crs) != "EPSG:5880":
+    gdf_fab_m = gdf_fab.to_crs(5880).copy()
+else:
+    gdf_fab_m = gdf_fab.copy()
 
-K = 5  # <- número de hubs desejados
-kmeans = KMeans(n_clusters=K, random_state=42, n_init=20)
+if str(gdf_merge.crs) != "EPSG:5880":
+    gdf_mun_m = gdf_merge.to_crs(5880).copy()
+else:
+    gdf_mun_m = gdf_merge.copy()
 
-gdf_hub["Hub_ID"] = kmeans.fit_predict(X)
+# filtrar plantas com demanda >0
+gdf_fab_m = gdf_fab_m[gdf_fab_m["Demand_GJ"].fillna(0) > 0].copy()
 
-# resumo por hub
-hub_summary = (
-    gdf_hub.groupby("Hub_ID")
+# oferta municipal
+gdf_mun_m["Supply_GJ"] = gdf_mun_m["potencial_total_GJ"].fillna(0)
+
+# reduzir tamanho do problema (opcional mas recomendado):
+# manter só municipios com oferta > 0
+gdf_mun_m = gdf_mun_m[gdf_mun_m["Supply_GJ"] > 0].copy()
+
+# usar centróide do município para distância (simplificação padrão)
+gdf_mun_m["centroid"] = gdf_mun_m.geometry.centroid
+
+# criar tabelas base
+plants = gdf_fab_m[["Name", "Demand_GJ", "geometry"]].copy()
+mun = gdf_mun_m[["CD_MUN", "Supply_GJ", "centroid"]].copy()
+
+plants["Name"] = plants["Name"].astype(str)
+mun["CD_MUN"] = mun["CD_MUN"].astype(str).str.zfill(7)
+
+# dicionários de demanda e oferta
+Demand = plants.set_index("Name")["Demand_GJ"].to_dict()
+Supply = mun.set_index("CD_MUN")["Supply_GJ"].to_dict()
+
+P = list(Demand.keys())
+M = list(Supply.keys())
+
+# ============================================================
+# 2) MATRIZ DE DISTÂNCIAS (km) ENTRE PLANTA E MUNICÍPIO
+# ============================================================
+# cálculo vetorizado simples (pode ser pesado se M for grande; depois te mostro otimização)
+plant_geom = plants.set_index("Name")["geometry"]
+mun_cent = mun.set_index("CD_MUN")["centroid"]
+
+dist_km = {}
+for p in P:
+    gp = plant_geom.loc[p]
+    # distâncias (m) para todos municípios
+    d = mun_cent.distance(gp) / 1000.0  # km
+    for m in M:
+        dist_km[(p, m)] = float(d.loc[m])
+
+# custo unitário total por par (R$/GJ)
+c_pm = {(p, m): C_base_R_per_GJ + C_transp_factor * dist_km[(p, m)] for p in P for m in M}
+
+# ============================================================
+# 3) MODELO PYOMO (LP)
+# ============================================================
+model = ConcreteModel()
+
+# Variável: x[p,m] = GJ de resíduo do município m usado na planta p
+model.x = Var(P, M, domain=NonNegativeReals)
+
+# Objetivo: minimizar custo total
+def obj_rule(mod):
+    return sum(mod.x[p, m] * c_pm[(p, m)] for p in P for m in M)
+
+model.obj = Objective(rule=obj_rule, sense=1)  # 1 = minimize
+
+# Restrição: substituição por planta (igualdade)
+def plant_sub_rule(mod, p):
+    return sum(mod.x[p, m] for m in M) == alpha * Demand[p]
+
+model.plant_sub = Constraint(P, rule=plant_sub_rule)
+
+# Restrição: oferta municipal
+def supply_rule(mod, m):
+    return sum(mod.x[p, m] for p in P) <= Supply[m]
+
+model.supply = Constraint(M, rule=supply_rule)
+
+# ============================================================
+# 4) RESOLVER
+# ============================================================
+# Tente primeiro glpk ou cbc:
+# solver = SolverFactory("glpk")
+# solver = SolverFactory("cbc")
+# solver = SolverFactory('ipopt')
+
+solver_name = "ipopt"  # "highs", "cbc",  "couenne", "bonmin", "ipopt", "scip", or "gcg".
+solver = SolverFactory(solver_name+"nl", executable=modules.find(solver_name), solve_io="nl")
+
+result = solver.solve(model, tee=True)
+
+# ============================================================
+# 5) EXTRAIR RESULTADOS
+# ============================================================
+# fluxos positivos
+rows = []
+for p in P:
+    for m in M:
+        xval = value(model.x[p, m])
+        if xval is not None and xval > 1e-6:
+            rows.append({
+                "Name": p,
+                "CD_MUN": m,
+                "GJ_alocado": xval,
+                "dist_km": dist_km[(p, m)],
+                "custo_unit_R_per_GJ": c_pm[(p, m)],
+                "custo_total_R": xval * c_pm[(p, m)]
+            })
+
+df_flow = pd.DataFrame(rows)
+
+# custo por planta
+df_cost_opt = (
+    df_flow.groupby("Name")
     .agg(
-        n_plantas=("Name", "count"),
-        demanda_total_GJ=("Demand_GJ", "sum"),
-        custo_total_R=("Custo_anual_resid_R", "sum"),
-        x_centro=("x", "mean"),
-        y_centro=("y", "mean"),
+        GJ_substituido=("GJ_alocado", "sum"),
+        custo_total_R=("custo_total_R", "sum"),
+        dist_media_km=("dist_km", lambda s: np.average(s, weights=df_flow.loc[s.index, "GJ_alocado"]))
     )
     .reset_index()
 )
 
-print(hub_summary)
+df_cost_opt["custo_medio_R_per_GJ"] = df_cost_opt["custo_total_R"] / df_cost_opt["GJ_substituido"]
+
+# custo total sistema
+total_cost = df_flow["custo_total_R"].sum()
+total_GJ = df_flow["GJ_alocado"].sum()
+
+print("\n=== RESULTADO OTIMIZAÇÃO ===")
+print(f"Substituição alpha = {alpha:.2%}")
+print(f"GJ substituídos total = {total_GJ:,.0f}")
+print(f"Custo total (R$) = {total_cost:,.0f}")
+print(f"Custo médio (R$/GJ) = {total_cost/total_GJ:,.2f}")
 
 # ============================================================
-# 8) Exportação Excel (plantas + custos + hubs)
+# 6) EXPORTAR
 # ============================================================
-out_xlsx = "Resultados_planta_custos_emissoes_hubs.xlsx"
-
+out_xlsx = path + f"/otimizacao_substituicao_alpha_{int(alpha*100)}pct.xlsx"
 with pd.ExcelWriter(out_xlsx, engine="openpyxl") as writer:
-    df_radius.to_excel(writer, sheet_name="Raio", index=False)
-    df_cost.to_excel(writer, sheet_name="Custos_Emissoes", index=False)
-    hub_summary.to_excel(writer, sheet_name="Resumo_Hubs", index=False)
-    # exportar gdf_hub sem geometria
-    gdf_hub.drop(columns=["geometry"], errors="ignore").to_excel(writer, sheet_name="Plantas_com_Hub", index=False)
+    df_cost_opt.to_excel(writer, sheet_name="custos_por_planta", index=False)
+    df_flow.to_excel(writer, sheet_name="fluxos_planta_mun", index=False)
 
-print(f"Exportado: {out_xlsx}")
+print(f"\nArquivo exportado: {out_xlsx}")
+#%%
+
+import geopandas as gpd
+import pandas as pd
+import numpy as np
+from shapely.geometry import LineString
+import folium
+
+# =========================
+# 1) Preparar geometrias em lat/lon (EPSG:4326)
+# =========================
+gdf_fab_ll = gdf_fab.to_crs(4326).copy()
+gdf_mun_ll = gdf_merge.to_crs(4326).copy()
+
+gdf_mun_ll["CD_MUN"] = gdf_mun_ll["CD_MUN"].astype(str).str.zfill(7)
+
+# centróide dos municípios (em lat/lon ok para visualização)
+gdf_mun_ll["centroid"] = gdf_mun_ll.geometry.centroid
+
+# dicionários de geometria
+plant_pt = gdf_fab_ll.set_index("Name").geometry.to_dict()
+mun_pt   = gdf_mun_ll.set_index("CD_MUN")["centroid"].to_dict()
+
+# =========================
+# 2) (Opcional) reduzir número de linhas para não ficar pesado
+#    Ex.: manter só fluxos acima de um limiar
+# =========================
+df_lines = df_flow.copy()
+df_lines["CD_MUN"] = df_lines["CD_MUN"].astype(str).str.zfill(7)
+
+# exemplo: manter só fluxos >= 1% do total ou >= X GJ
+threshold = max(df_lines["GJ_alocado"].sum() * 0.0001, 0)  # 1% do total
+df_lines = df_lines[df_lines["GJ_alocado"] >= threshold].copy()
+
+# (alternativa) manter top N por planta:
+# df_lines = (df_lines.sort_values("GJ_alocado", ascending=False)
+#                    .groupby("Name").head(10).reset_index(drop=True))
+
+# =========================
+# 3) Criar GeoDataFrame de linhas
+# =========================
+geoms = []
+rows = []
+
+for _, r in df_lines.iterrows():
+    p = r["Name"]
+    m = r["CD_MUN"]
+
+    if (p not in plant_pt) or (m not in mun_pt):
+        continue
+
+    line = LineString([mun_pt[m], plant_pt[p]])
+    geoms.append(line)
+
+    rows.append({
+        "Name": p,
+        "CD_MUN": m,
+        "GJ_alocado": float(r["GJ_alocado"]),
+        "dist_km": float(r["dist_km"]) if "dist_km" in r else np.nan,
+        "custo_total_R": float(r["custo_total_R"]) if "custo_total_R" in r else np.nan
+    })
+
+gdf_lines = gpd.GeoDataFrame(rows, geometry=geoms, crs="EPSG:4326")
+
+# =========================
+# 4) Mapa Folium
+# =========================
+# centro do mapa
+center = [gdf_fab_ll.geometry.y.mean(), gdf_fab_ll.geometry.x.mean()]
+m = folium.Map(location=center, zoom_start=4, tiles="CartoDB positron")
+
+# adicionar plantas (pontos)
+for _, row in gdf_fab_ll.iterrows():
+    folium.CircleMarker(
+        location=[row.geometry.y, row.geometry.x],
+        radius=5,
+        tooltip=row["Name"],
+        fill=True
+    ).add_to(m)
+
+# largura das linhas proporcional ao fluxo
+max_gj = gdf_lines["GJ_alocado"].max() if len(gdf_lines) else 1.0
+
+def line_style(feat):
+    gj = feat["properties"]["GJ_alocado"]
+    w = 1 + 6 * (gj / max_gj)  # escala simples
+    return {"weight": w, "opacity": 0.7}
+
+tooltip = folium.GeoJsonTooltip(
+    fields=["Name", "CD_MUN", "GJ_alocado", "dist_km", "custo_total_R"],
+    aliases=["Planta:", "Município:", "GJ alocado:", "Distância (km):", "Custo total (R$):"],
+    localize=True
+)
+
+folium.GeoJson(
+    gdf_lines,
+    name="Fluxos (município → planta)",
+    style_function=line_style,
+    tooltip=tooltip
+).add_to(m)
+
+folium.LayerControl().add_to(m)
+
+# salvar
+out_html = path + "/mapa_fluxos_municipio_planta.html"
+m.save(out_html)
+
+out_html
