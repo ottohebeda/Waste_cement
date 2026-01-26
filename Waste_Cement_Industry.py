@@ -11,6 +11,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from shapely import wkt  # necessário para ler WKT
 import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
 
 path = r"C:\Users\ottoh\OneDrive\Meus artigos\Resíduos na produção de cimento"
 
@@ -400,8 +402,19 @@ if "Name" not in df_plants.columns:
 if "Demand_GJ" not in df_plants.columns:
     raise ValueError("gdf_fab precisa ter coluna 'Demand_GJ' antes deste cálculo.")
 
-df_cost = df_radius.merge(df_plants[["Name", "Demand_GJ"]], on="Name", how="left")
+# garantir que df_radius NÃO tenha Demand_GJ
+df_radius_clean = df_radius.drop(columns=["Demand_GJ"], errors="ignore")
 
+df_cost = df_radius_clean.merge(
+    df_plants[["Name", "Demand_GJ"]],
+    on="Name",
+    how="left"
+)
+
+# df_cost["Demand_GJ"] = df_cost["Demand_GJ_y"].combine_first(df_cost["Demand_GJ_x"])
+
+# Remover colunas duplicadas
+# df_cost = df_cost.drop(columns=["Demand_GJ_x", "Demand_GJ_y"])
 # Missing demand?
 if df_cost["Demand_GJ"].isna().sum() > 0:
     print("Atenção: plantas com Demand_GJ ausente.")
@@ -494,7 +507,26 @@ EF_trad_kgCO2_per_GJ = 93                     # combustível tradicional (coque)
 EF_resid_kgCO2_per_GJ = 0.05 * EF_trad_kgCO2_per_GJ  # combustível alternativo = 5% do tradicional
 
 EF_transporte_kgCO2_km = 2.7                  # caminhão diesel (aprox.)
-gdf_fab = gdf_fab.merge(df_radius,on="Name",how="left")
+
+# Limpar duplicidades antigas antes de novo merge
+cols = gdf_fab.columns
+
+if "Demand_GJ_x" in cols or "Demand_GJ_y" in cols:
+    gdf_fab["Demand_GJ"] = (
+        gdf_fab.get("Demand_GJ_y", np.nan)
+        .combine_first(gdf_fab.get("Demand_GJ_x", np.nan))
+    )
+    gdf_fab = gdf_fab.drop(
+        columns=[c for c in ["Demand_GJ_x", "Demand_GJ_y"] if c in cols]
+    )
+
+gdf_fab = gdf_fab.merge(
+    df_radius[["Name", "radius_km"]],
+    on="Name",
+    how="left"
+)
+
+# Criar Demand_GJ final escolhendo a coluna correta
 
 # --- Emissões combustíveis ---
 gdf_fab["Emissoes_trad_kgCO2"] = (
@@ -530,4 +562,57 @@ output_path = path+"/resultados_por_planta.xlsx"
 df_final.to_excel(output_path, index=False)
 
 print(f"Arquivo exportado com sucesso para: {output_path}")
+#%%
+# ============================================================
+# 7) NOVO: K-MEANS PARA DEFINIÇÃO DE HUBS (usando CAPEX+OPEX + demanda)
+# ============================================================
+# A ideia aqui: clusters de plantas para sugerir hubs.
+# Feature set: [x, y, custo_total_anual, demanda]
+# (padronizamos com StandardScaler)
 
+# juntar custo anual no gdf_fab para cluster
+gdf_hub = gdf_fab_m.merge(df_cost[["Name", "Custo_anual_resid_R$"]], on="Name", how="left")
+
+# features
+gdf_hub["x"] = gdf_hub.geometry.x
+gdf_hub["y"] = gdf_hub.geometry.y
+gdf_hub["Custo_total_R$"] = gdf_hub["Custo_anual_resid_R$"]
+
+features = gdf_hub[["x", "y", "Custo_total_R$", "Demand_GJ"]].fillna(0)
+
+scaler = StandardScaler()
+X = scaler.fit_transform(features)
+
+K = 5  # <- número de hubs desejados
+kmeans = KMeans(n_clusters=K, random_state=42, n_init=20)
+
+gdf_hub["Hub_ID"] = kmeans.fit_predict(X)
+
+# resumo por hub
+hub_summary = (
+    gdf_hub.groupby("Hub_ID")
+    .agg(
+        n_plantas=("Name", "count"),
+        demanda_total_GJ=("Demand_GJ", "sum"),
+        custo_total_R=("Custo_anual_resid_R", "sum"),
+        x_centro=("x", "mean"),
+        y_centro=("y", "mean"),
+    )
+    .reset_index()
+)
+
+print(hub_summary)
+
+# ============================================================
+# 8) Exportação Excel (plantas + custos + hubs)
+# ============================================================
+out_xlsx = "Resultados_planta_custos_emissoes_hubs.xlsx"
+
+with pd.ExcelWriter(out_xlsx, engine="openpyxl") as writer:
+    df_radius.to_excel(writer, sheet_name="Raio", index=False)
+    df_cost.to_excel(writer, sheet_name="Custos_Emissoes", index=False)
+    hub_summary.to_excel(writer, sheet_name="Resumo_Hubs", index=False)
+    # exportar gdf_hub sem geometria
+    gdf_hub.drop(columns=["geometry"], errors="ignore").to_excel(writer, sheet_name="Plantas_com_Hub", index=False)
+
+print(f"Exportado: {out_xlsx}")
