@@ -342,12 +342,13 @@ import numpy as np
 # Parâmetros fixos
 # ============================================================
 CAMBIO = 5.5  # R$ por US$
-COST_USD_PER_GJ_PER_KM = 0.0066  # US$/GJ/km
+# COST_USD_PER_GJ_PER_KM = 0.0066  # US$/GJ/km
+COST_USD_PER_GJ_PER_KM = 0.01  # US$/GJ/km
 
 # Conversões e custos por GJ
 GJ_PER_TEP = 41.868
-C_trad = 466.0 / GJ_PER_TEP         # R$/GJ (combustível tradicional)
-C_resid = 500.0 / GJ_PER_TEP        # R$/GJ (combustível de resíduo)
+C_trad = 834.0 / GJ_PER_TEP         # R$/TEP -> R$/GJ (combustível tradicional)
+C_resid = 0.0 / GJ_PER_TEP        # R$/GJ (combustível de resíduo)
 C_transp_factor = COST_USD_PER_GJ_PER_KM * CAMBIO  # R$/GJ/km
 
 print(f"C_trad = {C_trad:.6f} R$/GJ")
@@ -359,7 +360,7 @@ print(f"C_transp_factor = {C_transp_factor:.6f} R$/GJ/km")
 # ============================================================
 truck_payload_t = 20.0               # capacidade útil do caminhão (t)
 LHV_residue_MJ_per_kg = 10.0         # PCI do resíduo (MJ/kg)
-diesel_L_per_km = 0.30               # consumo do caminhão (L/km)
+diesel_L_per_km = 3.0               # consumo do caminhão (L/km)
 EF_diesel_kgCO2_per_L = 2.67         # fator de emissão diesel (kgCO2/L)
 
 # Energia transportada por viagem (GJ)
@@ -374,7 +375,7 @@ EF_resid_kgCO2_per_GJ = EF_trad_kgCO2_per_GJ * EF_resid_ratio
 # CAPEX e OPEX do combustível de resíduo (NOVO)
 # ============================================================
 CAPEX_USD_PER_T = 30.0   # US$/t combustível produzido
-OPEX_USD_PER_T = 0  # US$/t combustível produzido
+OPEX_USD_PER_T = 2.5 # US$/t combustível produzido
 
 GJ_PER_TON_RESID = LHV_residue_MJ_per_kg  # GJ/t (1 t => 1000 kg)
 
@@ -569,15 +570,7 @@ from amplpy import modules
 # ============================================================
 # 0) PARAMETROS DO PROBLEMA
 # ============================================================
-alpha = 0.5  # percentual de substituição (ex: 30%) -> ajuste aqui
-
-# Custos unitários (R$/GJ) - use os seus já calculados
-# C_resid = 500/41.868  (R$/GJ)
-# CAPEX_OPEX_R_per_GJ já calculado no seu script
-# C_transp_factor = 0.0066*CAMBIO  (R$/GJ/km)
-
-# Aqui vou assumir que essas variáveis já existem no seu ambiente:
-# C_resid, CAPEX_OPEX_R_per_GJ, C_transp_factor
+alpha = 0.7  # percentual de substituição (ex: 30%) -> ajuste aqui
 
 C_base_R_per_GJ = float(C_resid) + float(CAPEX_OPEX_R_per_GJ)  # custo do resíduo "na porta", sem transporte
 
@@ -629,16 +622,29 @@ M = list(Supply.keys())
 plant_geom = plants.set_index("Name")["geometry"]
 mun_cent = mun.set_index("CD_MUN")["centroid"]
 
+MAX_DIST_KM = 300.0
+
 dist_km = {}
+
 for p in P:
     gp = plant_geom.loc[p]
-    # distâncias (m) para todos municípios
-    d = mun_cent.distance(gp) / 1000.0  # km
-    for m in M:
-        dist_km[(p, m)] = float(d.loc[m])
+
+    # distâncias (km) da planta p para todos municípios
+    d_km = mun_cent.distance(gp) / 1000.0
+
+    for m, dist in d_km.items():
+        if dist <= MAX_DIST_KM:
+            dist_km[(p, m)] = float(dist)
+
+PM = list(dist_km.keys()) #pares dentro de 300km
 
 # custo unitário total por par (R$/GJ)
-c_pm = {(p, m): C_base_R_per_GJ + C_transp_factor * dist_km[(p, m)] for p in P for m in M}
+
+c_pm = {
+        (p, m): 
+        C_base_R_per_GJ + C_transp_factor * dist_km[(p, m)] 
+        for (p, m) in PM
+        }
 
 # ============================================================
 # 3) MODELO PYOMO (LP)
@@ -646,25 +652,35 @@ c_pm = {(p, m): C_base_R_per_GJ + C_transp_factor * dist_km[(p, m)] for p in P f
 model = ConcreteModel()
 
 # Variável: x[p,m] = GJ de resíduo do município m usado na planta p
-model.x = Var(P, M, domain=NonNegativeReals)
+model.x = Var(PM, domain=NonNegativeReals)
 
 # Objetivo: minimizar custo total
 def obj_rule(mod):
-    return sum(mod.x[p, m] * c_pm[(p, m)] for p in P for m in M)
+    return sum(mod.x[p, m] * c_pm[(p, m)] for (p, m) in PM)
 
 model.obj = Objective(rule=obj_rule, sense=1)  # 1 = minimize
 
 # Restrição: substituição por planta (igualdade)
-def plant_sub_rule(mod, p):
-    return sum(mod.x[p, m] for m in M) == alpha * Demand[p]
+total_demand = sum(Demand.values())
 
-model.plant_sub = Constraint(P, rule=plant_sub_rule)
+model.total_sub = Constraint(
+    expr=sum(model.x[p, m] for (p, m) in PM) == alpha * total_demand
+)
+
+def plant_cap_rule(mod, p):
+    return sum(mod.x[p, m] for (pp, m) in PM if pp == p) <= Demand[p]
+
+model.plant_cap = Constraint(P, rule=plant_cap_rule)
 
 # Restrição: oferta municipal
 def supply_rule(mod, m):
-    return sum(mod.x[p, m] for p in P) <= Supply[m]
+    pairs_m = [(p, mm) for (p, mm) in PM if mm == m]
+    if len(pairs_m) == 0:
+        return Constraint.Skip
+    return sum(mod.x[p, m] for (p, mm) in pairs_m) <= Supply[m]
 
 model.supply = Constraint(M, rule=supply_rule)
+
 
 # ============================================================
 # 4) RESOLVER
@@ -674,63 +690,174 @@ model.supply = Constraint(M, rule=supply_rule)
 # solver = SolverFactory("cbc")
 # solver = SolverFactory('ipopt')
 
+import time
+
+t0 = time.time()
+print(">>> Iniciando otimização Pyomo...")
+
 solver_name = "ipopt"  # "highs", "cbc",  "couenne", "bonmin", "ipopt", "scip", or "gcg".
 solver = SolverFactory(solver_name+"nl", executable=modules.find(solver_name), solve_io="nl")
 
 result = solver.solve(model, tee=True)
 
+t1 = time.time()
+elapsed = t1 - t0
+
+print(f">>> Otimização finalizada em {elapsed:.1f} segundos ({elapsed/60:.2f} minutos)")
 # ============================================================
-# 5) EXTRAIR RESULTADOS
+# 5) EXTRAIR RESULTADOS (COM CUSTOS/EMISSÕES/CMA)
 # ============================================================
-# fluxos positivos
+from pyomo.environ import value
+import numpy as np
+import pandas as pd
+
+# ---- 5.1 Fluxos positivos (df_flow) ----
 rows = []
-for p in P:
-    for m in M:
-        xval = value(model.x[p, m])
-        if xval is not None and xval > 1e-6:
-            rows.append({
-                "Name": p,
-                "CD_MUN": m,
-                "GJ_alocado": xval,
-                "dist_km": dist_km[(p, m)],
-                "custo_unit_R_per_GJ": c_pm[(p, m)],
-                "custo_total_R": xval * c_pm[(p, m)]
-            })
+for (p, m) in PM:  # só pares existentes no modelo
+    xval = value(model.x[p, m])
+    if xval is not None and xval > 1e-6:
+        gj = float(xval)
+        dkm = float(dist_km[(p, m)])
+        cunit = float(c_pm[(p, m)])
+        rows.append({
+            "Name": p,
+            "CD_MUN": m,
+            "GJ_alocado": gj,
+            "dist_km": dkm,
+            "custo_unit_R_per_GJ": cunit,
+            "custo_total_R": gj * cunit
+        })
 
 df_flow = pd.DataFrame(rows)
 
-# custo por planta
-df_cost_opt = (
-    df_flow.groupby("Name")
-    .agg(
-        GJ_substituido=("GJ_alocado", "sum"),
-        custo_total_R=("custo_total_R", "sum"),
-        dist_media_km=("dist_km", lambda s: np.average(s, weights=df_flow.loc[s.index, "GJ_alocado"]))
+if df_flow.empty:
+    print("⚠️ df_flow vazio: nenhum fluxo positivo encontrado. Verifique viabilidade/alpha/MAX_DIST_KM.")
+else:
+    # ---- 5.2 Cálculos adicionais no nível do fluxo ----
+    # Transporte: ida e volta
+    df_flow["dist_roundtrip_km"] = 2.0 * df_flow["dist_km"]
+
+    # Número de viagens para transportar o GJ alocado
+    # (GJ_per_truck já definido no seu script)
+    df_flow["n_trips"] = np.ceil(df_flow["GJ_alocado"] / GJ_per_truck)
+
+    # Distância total rodada pelo caminhão para esse fluxo
+    df_flow["total_dist_km"] = df_flow["n_trips"] * df_flow["dist_roundtrip_km"]
+
+    # Consumo de diesel e emissões de transporte
+    df_flow["litros_diesel"] = df_flow["total_dist_km"] * diesel_L_per_km
+    df_flow["E_transporte_kgCO2"] = df_flow["litros_diesel"] * EF_diesel_kgCO2_per_L
+
+    # Emissões combustão (original e novo) ASSOCIADAS AO GJ SUBSTITUÍDO
+    df_flow["E_original_kgCO2"] = df_flow["GJ_alocado"] * EF_trad_kgCO2_per_GJ
+    df_flow["E_nova_comb_kgCO2"] = df_flow["GJ_alocado"] * EF_resid_kgCO2_per_GJ
+    df_flow["E_nova_total_kgCO2"] = df_flow["E_nova_comb_kgCO2"] + df_flow["E_transporte_kgCO2"]
+
+    # Diferença de emissões (redução) e custos de referência
+    df_flow["Delta_emissoes_kgCO2"] = df_flow["E_original_kgCO2"] - df_flow["E_nova_total_kgCO2"]
+
+    df_flow["Custo_original_R"] = df_flow["GJ_alocado"] * C_trad
+    df_flow["Delta_custo_R"] = df_flow["custo_total_R"] - df_flow["Custo_original_R"]
+
+    # CMA no nível do fluxo (R$/tCO2)
+    df_flow["CMA_R_per_tCO2"] = np.where(
+        df_flow["Delta_emissoes_kgCO2"] > 0,
+        df_flow["Delta_custo_R"] * 1000.0 / df_flow["Delta_emissoes_kgCO2"],
+        np.nan
     )
-    .reset_index()
-)
 
-df_cost_opt["custo_medio_R_per_GJ"] = df_cost_opt["custo_total_R"] / df_cost_opt["GJ_substituido"]
+    # ---- 5.3 Tabela por planta com tudo o que você pediu ----
+    # Demanda original por planta (vem do dict Demand do modelo)
+    df_demand_plants = pd.DataFrame({
+        "Name": list(Demand.keys()),
+        "Demand_original_GJ": list(Demand.values())
+    })
 
-# custo total sistema
-total_cost = df_flow["custo_total_R"].sum()
-total_GJ = df_flow["GJ_alocado"].sum()
+    df_plant = (
+        df_flow.groupby("Name", as_index=False)
+        .agg(
+            GJ_substituido=("GJ_alocado", "sum"),
+            custo_novo_R=("custo_total_R", "sum"),
+            custo_original_R=("Custo_original_R", "sum"),
+            Delta_custo_R=("Delta_custo_R", "sum"),
+            Emissao_original_kgCO2=("E_original_kgCO2", "sum"),
+            Emissao_nova_kgCO2=("E_nova_total_kgCO2", "sum"),
+            Delta_emissoes_kgCO2=("Delta_emissoes_kgCO2", "sum"),
+            dist_media_km=("dist_km", lambda s: np.average(s, weights=df_flow.loc[s.index, "GJ_alocado"])),
+            total_dist_km=("total_dist_km", "sum"),
+            litros_diesel=("litros_diesel", "sum"),
+        )
+    )
 
-print("\n=== RESULTADO OTIMIZAÇÃO ===")
-print(f"Substituição alpha = {alpha:.2%}")
-print(f"GJ substituídos total = {total_GJ:,.0f}")
-print(f"Custo total (R$) = {total_cost:,.0f}")
-print(f"Custo médio (R$/GJ) = {total_cost/total_GJ:,.2f}")
+    # juntar demanda original
+    df_plant = df_plant.merge(df_demand_plants, on="Name", how="left")
+
+    # percentual substituído efetivo
+    df_plant["Perc_substituido_%"] = 100.0 * df_plant["GJ_substituido"] / df_plant["Demand_original_GJ"]
+
+    # custos médios
+    df_plant["custo_medio_novo_R_per_GJ"] = df_plant["custo_novo_R"] / df_plant["GJ_substituido"]
+    df_plant["custo_medio_original_R_per_GJ"] = df_plant["custo_original_R"] / df_plant["GJ_substituido"]
+
+    # CMA por planta (R$/tCO2)
+    df_plant["CMA_R_per_tCO2"] = np.where(
+        df_plant["Delta_emissoes_kgCO2"] > 0,
+        df_plant["Delta_custo_R"] * 1000.0 / df_plant["Delta_emissoes_kgCO2"],
+        np.nan
+    )
+
+    # ---- 5.4 Totais do sistema (resumo) ----
+    total_cost_new = df_flow["custo_total_R"].sum()
+    total_cost_old = df_flow["Custo_original_R"].sum()
+    total_delta_cost = df_flow["Delta_custo_R"].sum()
+
+    total_E_old = df_flow["E_original_kgCO2"].sum()
+    total_E_new = df_flow["E_nova_total_kgCO2"].sum()
+    total_delta_E = df_flow["Delta_emissoes_kgCO2"].sum()
+
+    total_GJ = df_flow["GJ_alocado"].sum()
+
+    CMA_system = (total_delta_cost * 1000.0 / total_delta_E) if total_delta_E > 0 else np.nan
+
+    df_summary = pd.DataFrame([{
+        "alpha": alpha,
+        "GJ_substituidos_total": total_GJ,
+        "custo_novo_total_R": total_cost_new,
+        "custo_original_total_R": total_cost_old,
+        "Delta_custo_total_R": total_delta_cost,
+        "Emissao_original_total_kgCO2": total_E_old,
+        "Emissao_nova_total_kgCO2": total_E_new,
+        "Delta_emissoes_total_kgCO2": total_delta_E,
+        "CMA_sistema_R_per_tCO2": CMA_system
+    }])
+
+    print("\n=== RESULTADO OTIMIZAÇÃO ===")
+    print(f"Substituição alpha = {alpha:.2%}")
+    print(f"GJ substituídos total = {total_GJ:,.0f}")
+    print(f"Custo total novo (R$) = {total_cost_new:,.0f}")
+    print(f"Custo total original (R$) = {total_cost_old:,.0f}")
+    print(f"Delta custo (R$) = {total_delta_cost:,.0f}")
+    print(f"Emissão original (tCO2) = {total_E_old/1000:,.0f}")
+    print(f"Emissão nova (tCO2) = {total_E_new/1000:,.0f}")
+    print(f"Redução (tCO2) = {total_delta_E/1000:,.0f}")
+    print(f"CMA sistema (R$/tCO2) = {CMA_system:,.2f}")
+
 
 # ============================================================
-# 6) EXPORTAR
+# 6) EXPORTAR (COM NOVAS ABAS)
 # ============================================================
 out_xlsx = path + f"/otimizacao_substituicao_alpha_{int(alpha*100)}pct.xlsx"
 with pd.ExcelWriter(out_xlsx, engine="openpyxl") as writer:
-    df_cost_opt.to_excel(writer, sheet_name="custos_por_planta", index=False)
-    df_flow.to_excel(writer, sheet_name="fluxos_planta_mun", index=False)
+    if not df_flow.empty:
+        df_summary.to_excel(writer, sheet_name="resumo_sistema", index=False)
+        df_plant.to_excel(writer, sheet_name="resultados_por_planta", index=False)
+        df_flow.to_excel(writer, sheet_name="fluxos_planta_mun", index=False)
+    else:
+        # export mínimo para debug
+        pd.DataFrame([{"msg": "df_flow vazio - verifique viabilidade"}]).to_excel(writer, sheet_name="erro", index=False)
 
 print(f"\nArquivo exportado: {out_xlsx}")
+
 #%%
 
 import geopandas as gpd
