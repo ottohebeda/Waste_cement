@@ -14,7 +14,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 
-path = r"C:\Users\otto.hebeda\OneDrive - epe.gov.br\Documentos\Resíduos - projetos\Residuos na produção de cimento\Dados"
+path = r"C:\Users\ottoh\OneDrive\Meus artigos\Resíduos na produção de cimento"
 
 
 #%%
@@ -145,7 +145,7 @@ for planta in Capacidade_plantas.index:
        pass
 
 """Cement production in each Federal Unity"""
-Producao_UF_2019 = pd.read_csv(path+'/producao_cimento_UF_2019.csv', sep = ';') #Ajuste é feito passando o restante da produção para as plantas
+Producao_UF_2019 = pd.read_csv(path+'/producao_cimento_UF_2019.csv', sep = ',') #Ajuste é feito passando o restante da produção para as plantas
 Producao_clinquer_2019 = 63000*.71 #kt
 
 """Production of each plant"""
@@ -347,7 +347,7 @@ COST_USD_PER_GJ_PER_KM = 0.01  # US$/GJ/km
 
 # Conversões e custos por GJ
 GJ_PER_TEP = 41.868
-C_trad = 834.0 / GJ_PER_TEP         # R$/TEP -> R$/GJ (combustível tradicional)
+C_trad = 600.0 / GJ_PER_TEP         # R$/TEP -> R$/GJ (combustível tradicional)
 C_resid = 0.0 / GJ_PER_TEP        # R$/GJ (combustível de resíduo)
 C_transp_factor = COST_USD_PER_GJ_PER_KM * CAMBIO  # R$/GJ/km
 
@@ -570,7 +570,7 @@ from amplpy import modules
 # ============================================================
 # 0) PARAMETROS DO PROBLEMA
 # ============================================================
-alpha = 0.7  # percentual de substituição (ex: 30%) -> ajuste aqui
+alpha = 0.4  # percentual de substituição (ex: 30%) -> ajuste aqui
 
 C_base_R_per_GJ = float(C_resid) + float(CAPEX_OPEX_R_per_GJ)  # custo do resíduo "na porta", sem transporte
 
