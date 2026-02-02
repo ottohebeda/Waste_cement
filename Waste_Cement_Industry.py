@@ -1,968 +1,866 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Nov 24 10:23:42 2025
-
-@author: ottoh
-
-"""
-
-import geopandas as gpd
-import pandas as pd
-import matplotlib.pyplot as plt
-from shapely import wkt  # necessário para ler WKT
+import time
+import pickle
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
+import pandas as pd
+import geopandas as gpd
+import matplotlib.pyplot as plt
 
+from shapely.geometry import LineString
+from pyomo.environ import (
+    ConcreteModel, Var, NonNegativeReals, Objective, Constraint,
+    SolverFactory, value, minimize
+)
+from pyomo.opt import SolverStatus, TerminationCondition
+
+# ============================================================
+# CONSTANTES
+# ============================================================
+BAG_WEIGHT_KG = 0.050
+ENERGY_INTENSITY_CP_GJ_PER_T = 3500
+TRUCK_PAYLOAD_T = 20.0
+LHV_RESIDUE_MJ_PER_KG = 10.0
+DIESEL_CONSUMPTION_L_PER_KM = 0.30
+EF_DIESEL_KGCO2_PER_L = 2.67
+
+GJ_PER_TEP = 41.868
+EF_TRAD_KGCO2_PER_GJ = 92.8
+EF_RESID_FRACTION = 0.05  # Fator de emissão de resíduo relativo ao tradicional
+
+# ============================================================
+# PARÂMETROS ECONÔMICOS - DIFERENCIADOS POR TIPO
+# ============================================================
+CAMBIO = 5.5
+
+# --- RESÍDUO URBANO (MSW) ---
+C_MSW_R_PER_GJ = 0.0 / GJ_PER_TEP  # Custo base do resíduo MSW (R$/GJ)
+CAPEX_MSW_USD_PER_T = 30.0         # Investimento em infraestrutura MSW
+OPEX_MSW_USD_PER_T = 2.5           # Custo operacional MSW
+
+# --- RESÍDUO AGRÍCOLA (AGRO) ---
+C_AGRO_R_PER_GJ = 0.0 / GJ_PER_TEP  # Custo base do resíduo AGRO (R$/GJ)
+CAPEX_AGRO_USD_PER_T = 30.0         # Investimento em infraestrutura AGRO
+OPEX_AGRO_USD_PER_T = 2.5           # Custo operacional AGRO
+
+# --- RESÍDUO INDUSTRIAL (IW) ---
+C_IW_R_PER_GJ = 0.0 / GJ_PER_TEP     # Custo base do resíduo IW (R$/GJ)
+CAPEX_IW_USD_PER_T = 30.0            # Investimento em infraestrutura IW
+OPEX_IW_USD_PER_T = 2.5              # Custo operacional IW
+
+# --- COMBUSTÍVEL TRADICIONAL ---
+C_TRAD_R_PER_GJ = 600.0 / GJ_PER_TEP  # Custo combustível tradicional
+
+# --- TRANSPORTE ---
+COST_USD_PER_GJ_PER_KM = 0.01      # Custo de transporte (USD/GJ/km)
+
+# Parâmetros de otimização
+ALPHA = 0.3  # Taxa de substituição (50%)
+MAX_DIST_KM = 300.0
+
+#%%
+# ============================================================
+# 0) PATH
+# ============================================================
 path = r"C:\Users\ottoh\OneDrive\Meus artigos\Resíduos na produção de cimento"
 
+#%%
+# ============================================================
+# FUNÇÃO AUXILIAR: Calcular custo base por tipo
+# ============================================================
+def calcular_custo_base_tipo():
+    """
+    Calcula o custo base (sem transporte) para cada tipo de resíduo.
+    Retorna dict: {'MSW': ..., 'AGRO': ..., 'IW': ...}
+    """
+    # Observação: numericamente, MJ/kg == GJ/t
+    GJ_PER_TON_RESID = LHV_RESIDUE_MJ_PER_KG  # ex.: 10 MJ/kg => 10 GJ/t
+
+    def _custo_base(C_R_per_GJ, CAPEX_USD_per_T, OPEX_USD_per_T):
+        capex_R_per_GJ = (CAPEX_USD_per_T / GJ_PER_TON_RESID) * CAMBIO
+        opex_R_per_GJ  = (OPEX_USD_per_T  / GJ_PER_TON_RESID) * CAMBIO
+        return float(C_R_per_GJ + capex_R_per_GJ + opex_R_per_GJ)
+
+    return {
+        "MSW": _custo_base(C_MSW_R_PER_GJ,  CAPEX_MSW_USD_PER_T,  OPEX_MSW_USD_PER_T),
+        "AGRO": _custo_base(C_AGRO_R_PER_GJ, CAPEX_AGRO_USD_PER_T, OPEX_AGRO_USD_PER_T),
+        "IW": _custo_base(C_IW_R_PER_GJ,    CAPEX_IW_USD_PER_T,   OPEX_IW_USD_PER_T),
+    }
+
+# Calcular custos base
+C_base_tipo = calcular_custo_base_tipo()
+C_transp_factor = COST_USD_PER_GJ_PER_KM * CAMBIO  # R$/GJ/km
+
+print("\n=== PARÂMETROS ECONÔMICOS DIFERENCIADOS ===")
+print(f"Alpha (substituição): {ALPHA:.0%}")
+print(f"Distância máxima: {MAX_DIST_KM} km")
+print(f"\nCombustível Tradicional:")
+print(f"  Custo: {C_TRAD_R_PER_GJ:.4f} R$/GJ")
+print(f"\nResíduo Urbano (MSW):")
+print(f"  Custo matéria-prima: {C_MSW_R_PER_GJ:.4f} R$/GJ")
+print(f"  CAPEX: {(CAPEX_MSW_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO:.2f} R$/GJ")
+print(f"  OPEX: {(OPEX_MSW_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO:.2f} R$/GJ")
+print(f"  → TOTAL (sem transporte): {C_base_tipo['MSW']:.2f} R$/GJ")
+print(f"\nResíduo Agrícola (AGRO):")
+print(f"  Custo matéria-prima: {C_AGRO_R_PER_GJ:.4f} R$/GJ")
+print(f"  CAPEX: {(CAPEX_AGRO_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO:.2f} R$/GJ")
+print(f"  OPEX: {(OPEX_AGRO_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO:.2f} R$/GJ")
+print(f"  → TOTAL (sem transporte): {C_base_tipo['AGRO']:.2f} R$/GJ")
+print(f"\nResíduo Industrial (IW):")
+print(f"  Custo matéria-prima: {C_IW_R_PER_GJ:.4f} R$/GJ")
+print(f"  CAPEX: {(CAPEX_IW_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO:.2f} R$/GJ")
+print(f"  OPEX: {(OPEX_IW_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO:.2f} R$/GJ")
+print(f"  → TOTAL (sem transporte): {C_base_tipo['IW']:.2f} R$/GJ")
+print(f"\nTransporte:")
+print(f"  Custo: {C_transp_factor:.4f} R$/GJ/km")
 
 #%%
-# ================================================================
-# 1. Ler shapefile dos municípios
-# ================================================================
-gdf_mun = gpd.read_file(path+"/BR_Municipios_2024.shp")
+# ============================================================
+# 1) Ler shapefile dos municípios
+# ============================================================
+print("\n>>> Carregando shapefile de municípios...")
+gdf_mun = gpd.read_file(path + "/BR_Municipios_2024.shp")
+
+# Validações
+if gdf_mun.empty:
+    raise ValueError("Shapefile de municípios vazio ou não encontrado")
+    
+if not {'CD_MUN', 'geometry'}.issubset(gdf_mun.columns):
+    raise ValueError("Shapefile deve conter colunas 'CD_MUN' e 'geometry'")
+
 gdf_mun["CD_MUN"] = gdf_mun["CD_MUN"].astype(str).str.zfill(7)
+print(f"✓ {len(gdf_mun):,} municípios carregados")
 
 #%%
-# ================================================================
-# 2. Ler os potenciais energéticos (MSW + Agro)
-# ================================================================
-df_msw = pd.read_csv(path+"/MSW_Energy_potential.csv")
-df_agro = pd.read_csv(path+"/AgroWaste_Energy_potential.csv")
+# ============================================================
+# 2) Ler potenciais energéticos (MSW + Agro) - MANTER SEPARADO
+# ============================================================
+print("\n>>> Carregando dados de potencial energético...")
+df_msw = pd.read_csv(path + "/MSW_Energy_potential.csv")
+df_agro = pd.read_csv(path + "/AgroWaste_Energy_potential.csv")
+df_iw = pd.read_csv(path + "/IW_Energy_potential.csv")
+
 
 df_msw["CD_MUN"] = df_msw["CD_MUN"].astype(str).str.zfill(7)
+df_msw['CD_MUN'] = df_msw['CD_MUN'].str[1:]
+
 df_agro["CD_MUN"] = df_agro["CD_MUN"].astype(str).str.zfill(7)
+df_agro["CD_MUN_6"] = df_agro["CD_MUN"].str[:-1]
+
+df_iw["CD_MUN"] = df_iw["CD_MUN"].astype(str).str.zfill(7)
+
+
+mapa_cd_mun = (
+    df_agro[["CD_MUN_6", "CD_MUN"]]
+    .drop_duplicates()
+    .set_index("CD_MUN_6")["CD_MUN"]
+)
+
+df_msw["CD_MUN"] = df_msw["CD_MUN"].map(mapa_cd_mun)
+# df_iw["CD_MUN"] = df_iw["CD_MUN"].map(mapa_cd_mun)
+
 
 df = df_msw.merge(df_agro, on="CD_MUN", how="outer")
+df = df.merge(df_iw, on="CD_MUN", how="outer")
 
-df["potencial_total_GJ"] = (
-    df["Energy potential (GJ)"].fillna(0) +
-    df["Total (GJ)"].fillna(0)
-)
+df["MSW_GJ"] = df["Energy potential (GJ)"].fillna(0.0)
+df["AGRO_GJ"] = df["Total (GJ)"].fillna(0.0)
+df["IW_GJ"] = df["IW_GJ"].fillna(0.0)
 
-df_final = df[["CD_MUN", "potencial_total_GJ"]].rename(
-    columns={"CD_MUN": "CD_MUN"}
-)
+df["potencial_total_GJ"] = df["MSW_GJ"] + df["AGRO_GJ"] + df["IW_GJ"]
 
+df_final = df[["CD_MUN", "MSW_GJ", "AGRO_GJ", "IW_GJ", "potencial_total_GJ"]].copy()
 gdf_merge = gdf_mun.merge(df_final, on="CD_MUN", how="left")
 
+print(f"✓ Potencial energético carregado: {df_final['potencial_total_GJ'].sum():,.0f} GJ total")
+print(f"  - MSW:  {df_final['MSW_GJ'].sum():,.0f} GJ")
+print(f"  - AGRO: {df_final['AGRO_GJ'].sum():,.0f} GJ")
+print(f"  - IW:   {df_final['IW_GJ'].sum():,.0f} GJ")
+
 #%%
-# ================================================================
-# 3. Ler arquivo Fabricas_geo com a coluna "Georreferenciamento"
-# ================================================================
-df_fab = pd.read_csv(path+"/Fabricas_geo.csv")
+# ============================================================
+# 3) Ler fábricas (pontos)
+# ============================================================
+print("\n>>> Carregando dados de fábricas...")
+df_fab = pd.read_csv(path + "/Fabricas_geo.csv")
 
-# Separar latitude e longitude
+if df_fab.empty:
+    raise ValueError("Arquivo de fábricas vazio")
+
+df_fab["Name"] = df_fab["Name"].astype(str).str.strip()
+
+# Validar georreferenciamento
+invalid_geo = df_fab[~df_fab['Georreferenciamento'].str.contains(',', na=False)]
+if not invalid_geo.empty:
+    print(f"⚠️ {len(invalid_geo)} fábricas com georreferenciamento inválido (serão removidas)")
+    df_fab = df_fab[df_fab['Georreferenciamento'].str.contains(',', na=False)]
+
 df_fab[["lat", "lon"]] = df_fab["Georreferenciamento"].str.split(",", expand=True)
+df_fab["lat"] = pd.to_numeric(df_fab["lat"], errors='coerce')
+df_fab["lon"] = pd.to_numeric(df_fab["lon"], errors='coerce')
 
-# Converter para float
-df_fab["lat"] = df_fab["lat"].astype(float)
-df_fab["lon"] = df_fab["lon"].astype(float)
+# Remover coordenadas inválidas
+if df_fab[['lat', 'lon']].isna().any().any():
+    print("⚠️ Algumas fábricas têm coordenadas inválidas (serão removidas)")
+    df_fab = df_fab.dropna(subset=['lat', 'lon'])
 
-# Criar GeoDataFrame
 gdf_fab = gpd.GeoDataFrame(
     df_fab,
     geometry=gpd.points_from_xy(df_fab["lon"], df_fab["lat"]),
     crs="EPSG:4326"
 )
 
-# Garantir o mesmo CRS do shapefile
+# Alinhar CRS do mapa
 gdf_fab = gdf_fab.to_crs(gdf_mun.crs)
-
+print(f"✓ {len(gdf_fab):,} fábricas carregadas")
 
 #%%
-# ================================================================
-# 4. Plotar o mapa final
-# ================================================================
-fig, ax = plt.subplots(figsize=(12, 10))
+# ============================================================
+# 4) Plot rápido (opcional)
+# ============================================================
+# print("\n>>> Gerando mapa de potencial energético...")
+# fig, ax = plt.subplots(figsize=(12, 10))
+# gdf_merge.plot(column="potencial_total_GJ", cmap="viridis", legend=True,
+#                 linewidth=0.1, edgecolor="black", ax=ax)
+# gdf_fab.plot(ax=ax, color="red", markersize=40, label="Plantas de cimento")
+# plt.title("Potencial Energético (MSW+Agro) + Localização das Plantas")
+# plt.legend()
+# plt.axis("off")
+# plt.tight_layout()
+# plt.savefig(path + "/mapa_potencial_plantas.png", dpi=150, bbox_inches='tight')
+# plt.show()
+# print("✓ Mapa salvo: mapa_potencial_plantas.png")
 
-gdf_merge.plot(
-    column="potencial_total_GJ",
-    cmap="viridis",
-    legend=True,
-    linewidth=0.1,
-    edgecolor="black",
-    ax=ax
+#%%
+# ============================================================
+# 5) Construir demanda por planta
+# ============================================================
+print("\n>>> Calculando demanda por planta...")
+DF_plant_waste_by_city = pd.read_csv(path + '/Intersection_radius_cement_plants_R03_v3.csv')
+DF_plant_waste_by_city["Name"] = DF_plant_waste_by_city["Name"].astype(str).str.strip()
+
+# Limpeza de dados - versão melhorada
+DF_plant_waste_by_city['Cap__Mensal__scs_'] = (
+    DF_plant_waste_by_city['Cap__Mensal__scs_']
+    .astype(str)
+    .str.replace(r'[,.\n]|sacos', '', regex=True)
+    .astype('int64')
+)
+DF_plant_waste_by_city['Capacidade_ins_(t)'] = (
+    DF_plant_waste_by_city['Cap__Mensal__scs_'] * BAG_WEIGHT_KG * 12
 )
 
-# Plotas plantas de cimento
-gdf_fab.plot(
-    ax=ax,
-    color="red",
-    markersize=40,
-    label="Plantas de cimento"
+# Extrair UF - versão otimizada
+DF_plant_waste_by_city['UF'] = DF_plant_waste_by_city['Cidade'].str[-2:]
+
+# Correções manuais
+DF_plant_waste_by_city.loc[
+    DF_plant_waste_by_city.Name == 'Cimento Uau - Pains/MG', 'UF'
+] = 'MG'
+DF_plant_waste_by_city.loc[
+    DF_plant_waste_by_city.Name == "Cimento Forte - Suape/PE", 'UF'
+] = 'PE'
+
+# Capacidade por planta - versão otimizada
+Capacidade_plantas = pd.DataFrame(
+    index=DF_plant_waste_by_city.Name.unique(),
+    columns=['Capacidade anual', 'UF'],
+    data=0.0
 )
 
-plt.title("Potencial Energético + Localização das Fábricas de Cimento")
-plt.legend()
-plt.axis("off")
-plt.show()
+# Usar mapeamento ao invés de loop
+cap_dict = (
+    DF_plant_waste_by_city
+    .drop_duplicates('Name')
+    .set_index('Name')['Capacidade_ins_(t)']
+    .to_dict()
+)
+uf_dict = (
+    DF_plant_waste_by_city
+    .drop_duplicates('Name')
+    .set_index('Name')['UF']
+    .to_dict()
+)
 
-#%%
+Capacidade_plantas['Capacidade anual'] = Capacidade_plantas.index.map(cap_dict)
+Capacidade_plantas['UF'] = Capacidade_plantas.index.map(uf_dict)
 
-"""Parameters"""
-bag_weight = 0.050 #50 kg
-PCS_generico = 20000 #GJ/kt 
-gj_to_ktoe = 1/41868
-ktoe_to_gj = 41868
+# Produção por UF
+Producao_UF_2019 = pd.read_csv(path + '/producao_cimento_UF_2019.csv', sep=',')
+Producao_clinquer_2019 = 63000 * 0.71  # kt
 
-Energy_intensity_CP = 3500
+# Produção por planta
+Producao_plantas = pd.DataFrame(
+    index=Capacidade_plantas.index,
+    columns=['Producao (kt)', 'Tipo', 'Producao clinquer (kt)'],
+    data=0.0
+)
 
-"""Importing values - Urban waste"""
-Residuos_coletados = pd.read_csv(path+'/Total_residuos_publicos_domiciliares.csv')
-
-Residuos_coletados['Total coletado (kt)'] = Residuos_coletados['Total coletado (t)']/1000
-Residuos_coletados['Residuos/habitante'] = Residuos_coletados['Total coletado (t)']/Residuos_coletados['Populacao total']
-Residuos_coletados = Residuos_coletados.sort_values('Total coletado (t)')
-Residuos_coletados['Total coletado (log kt)'] = np.log10(Residuos_coletados ['Total coletado (kt)'])
-
-"""Importing values - DF with plants, their capacity, their location, the cities within the radius and the amount of waste each city generates"""
-DF_plant_waste_by_city= pd.read_csv(path+'/Intersection_radius_cement_plants_R03_v3.csv')
-DF_plant_waste_by_city['Cap__Mensal__scs_'] = DF_plant_waste_by_city['Cap__Mensal__scs_'].str.replace(',','')
-DF_plant_waste_by_city['Cap__Mensal__scs_'] = DF_plant_waste_by_city['Cap__Mensal__scs_'].str.replace('sacos','')
-DF_plant_waste_by_city['Cap__Mensal__scs_'] = DF_plant_waste_by_city['Cap__Mensal__scs_'].str.replace('\n','')
-DF_plant_waste_by_city['Cap__Mensal__scs_'] = DF_plant_waste_by_city['Cap__Mensal__scs_'].str.replace('.','')
-DF_plant_waste_by_city['Cap__Mensal__scs_'] = DF_plant_waste_by_city['Cap__Mensal__scs_'].astype('int64')
-DF_plant_waste_by_city['Capacidade_ins_(t)'] = DF_plant_waste_by_city['Cap__Mensal__scs_']*bag_weight*12 #12 is the number of months
-DF_plant_waste_by_city['UF'] = 0
-for cidade in DF_plant_waste_by_city.Cidade:
-    DF_plant_waste_by_city.loc[DF_plant_waste_by_city.Cidade == cidade,'UF'] = cidade[-2:]
-
-DF_plant_waste_by_city.loc[DF_plant_waste_by_city.Name == 'Cimento Uau - Pains/MG','UF'] = 'MG'
-DF_plant_waste_by_city.loc[DF_plant_waste_by_city.Name == "Cimento Forte - Suape/PE",'UF'] = 'PE'
-
-
-"""Creating a DF with the plants and their capacity"""
-w= 0
-Capacidade_plantas =pd.DataFrame(index= DF_plant_waste_by_city.Name.unique(), columns= ['Capacidade anual'],data = 0,dtype=float)
-for planta in Capacidade_plantas.index:
-   if planta != w:
-       Capacidade_plantas.loc[planta,'Capacidade anual'] = DF_plant_waste_by_city.loc[DF_plant_waste_by_city.Name == planta,'Capacidade_ins_(t)'].unique()[0]
-       Capacidade_plantas.loc[planta,'UF'] = DF_plant_waste_by_city.loc[DF_plant_waste_by_city.Name == planta,'UF'].unique()[0]
-       w=planta
-   else:
-       pass
-
-"""Cement production in each Federal Unity"""
-Producao_UF_2019 = pd.read_csv(path+'/producao_cimento_UF_2019.csv', sep = ',') #Ajuste é feito passando o restante da produção para as plantas
-Producao_clinquer_2019 = 63000*.71 #kt
-
-"""Production of each plant"""
-Producao_plantas = pd.DataFrame(index=Capacidade_plantas.index, columns = ['Producao (kt)','Tipo', 'Producao clinquer (kt)'],data = 0,dtype=float)
-w=0
-for planta in Producao_plantas.index:
-       Producao_plantas.loc[planta,'Producao (kt)'] = float(Capacidade_plantas.loc[planta,'Capacidade anual']/(Capacidade_plantas.groupby('UF').sum().loc[Capacidade_plantas.loc[planta, 'UF']]))*float(Producao_UF_2019.loc[Producao_UF_2019['UF'] == Capacidade_plantas.loc[planta, 'UF'],'Producao (kt) Ajustada'])
-       Producao_plantas.loc[planta,'Tipo'] = DF_plant_waste_by_city.loc[DF_plant_waste_by_city['Name'] == planta,'Tipo_Planta'].unique()[0]
-
+# Capacidade total por UF
+cap_total_uf = Capacidade_plantas.groupby('UF')['Capacidade anual'].sum()
 
 for planta in Producao_plantas.index:
-    if Producao_plantas.loc[planta,'Tipo'] == 'Fábrica':
-        Producao_plantas.loc[planta,'Producao clinquer (kt)'] = Producao_plantas.loc[planta,'Producao (kt)']/Producao_plantas.loc[Producao_plantas['Tipo'] == 'Fábrica','Producao (kt)'].sum()*Producao_clinquer_2019#percentual da produção da planta na aprodução de cimento total
+    uf_planta = Capacidade_plantas.loc[planta, 'UF']
+    cap_planta = float(Capacidade_plantas.loc[planta, 'Capacidade anual'])
+    cap_total = float(cap_total_uf.loc[uf_planta])
+    
+    prod_uf = Producao_UF_2019.loc[
+        Producao_UF_2019['UF'] == uf_planta, 'Producao (kt) Ajustada'
+    ]
+    
+    if not prod_uf.empty:
+        Producao_plantas.loc[planta, 'Producao (kt)'] = (
+            (cap_planta / cap_total) * float(prod_uf.iloc[0])
+        )
+    
+    tipo = DF_plant_waste_by_city.loc[
+        DF_plant_waste_by_city['Name'] == planta, 'Tipo_Planta'
+    ]
+    if not tipo.empty:
+        Producao_plantas.loc[planta, 'Tipo'] = tipo.unique()[0]
+
+# Produção de clínquer
+total_prod_fabricas = Producao_plantas.loc[
+    Producao_plantas['Tipo'] == 'Fábrica', 'Producao (kt)'
+].sum()
+
+for planta in Producao_plantas.index:
+    if Producao_plantas.loc[planta, 'Tipo'] == 'Fábrica':
+        Producao_plantas.loc[planta, 'Producao clinquer (kt)'] = (
+            Producao_plantas.loc[planta, 'Producao (kt)'] / total_prod_fabricas
+        ) * Producao_clinquer_2019
     else:
-        Producao_plantas.loc[planta,'Producao clinquer (kt)'] =0
+        Producao_plantas.loc[planta, 'Producao clinquer (kt)'] = 0.0
 
-Producao_plantas['Producao (kt)'] =Producao_plantas['Producao (kt)'].astype(float)
-Producao_plantas['Producao clinquer (kt)'] =Producao_plantas['Producao clinquer (kt)'].astype(float)       
+# Demanda energética
+Energy_demand_plant = (
+    Producao_plantas['Producao clinquer (kt)'] * ENERGY_INTENSITY_CP_GJ_PER_T
+).to_frame()
+Energy_demand_plant = Energy_demand_plant.rename(
+    columns={'Producao clinquer (kt)': 'Demand_GJ'}
+)
+Energy_demand_plant["Name"] = Energy_demand_plant.index.astype(str).str.strip()
 
-Producao_plantas.to_excel(path+'/producao_planta_cimento_2022.xlsx')
-
-"""Energy Demand in each plant"""
-Energy_demand_plant = Producao_plantas['Producao clinquer (kt)']*Energy_intensity_CP*1
-Energy_demand_plant = Energy_demand_plant.to_frame()
-Energy_demand_plant= Energy_demand_plant.rename({'Producao clinquer (kt)' :'Energy demand (GJ)'},axis= 1)
-Energy_demand_plant['Name'] = Energy_demand_plant.index
-#%%
-# --- 1) Preparar df_demand (garantir Name + Demand_GJ) ---
-df_demand = Energy_demand_plant.copy()
-
-# remover colunas duplicadas
-df_demand = df_demand.loc[:, ~df_demand.columns.duplicated()]
-
-# se o nome da planta estiver no index, mover para coluna
-if df_demand.index.name is not None and "Name" not in df_demand.columns:
-    df_demand = df_demand.reset_index().rename(columns={df_demand.index.name: "Name"})
-elif "Name" not in df_demand.columns:
-    # se não existe coluna Name, tentar encontrar alguma coluna plausível
-    possible = [c for c in df_demand.columns if "name" in c.lower() or "plant" in c.lower()]
-    if len(possible) == 1:
-        df_demand = df_demand.rename(columns={possible[0]: "Name"})
-    else:
-        raise ValueError("Não foi possível localizar a coluna com o nome da planta em df_demand.")
-
-# renomear coluna de demanda para Demand_GJ (se presente com outro nome)
-if "Energy demand (GJ)" in df_demand.columns:
-    df_demand = df_demand.rename(columns={"Energy demand (GJ)": "Demand_GJ"})
-elif "Demand_GJ" not in df_demand.columns:
-    # tentar detectar coluna plausível de demanda
-    poss_d = [c for c in df_demand.columns if "demand" in c.lower() or "gJ" in c.lower()]
-    if len(poss_d) == 1:
-        df_demand = df_demand.rename(columns={poss_d[0]: "Demand_GJ"})
-    else:
-        raise ValueError("Não foi possível localizar a coluna de demanda em df_demand.")
-
-# manter apenas Name + Demand_GJ
-df_demand = df_demand.loc[:, ["Name", "Demand_GJ"]]
-
-# remover duplicatas de Name (se houver), mantendo a primeira
+df_demand = Energy_demand_plant[["Name", "Demand_GJ"]].copy()
 df_demand = df_demand.drop_duplicates(subset="Name", keep="first").reset_index(drop=True)
 
-# --- 2) Garantir que gdf_fab tem coluna 'Name' para merge ---
-# se o nome da planta estiver no index de gdf_fab, mover para coluna
-if gdf_fab.index.name is not None and "Name" not in gdf_fab.columns:
-    gdf_fab = gdf_fab.reset_index().rename(columns={gdf_fab.index.name: "Name"})
-elif "Name" not in gdf_fab.columns:
-    # tentar achar coluna plausível
-    poss = [c for c in gdf_fab.columns if "name" in c.lower() or "plant" in c.lower()]
-    if len(poss) == 1:
-        gdf_fab = gdf_fab.rename(columns={poss[0]: "Name"})
-    else:
-        raise ValueError("Não foi possível localizar a coluna 'Name' em gdf_fab para fazer o merge.")
-
-# --- 3) Remover qualquer coluna antiga Demand_GJ em gdf_fab para evitar duplicação ---
+# Merge demanda em gdf_fab
+gdf_fab = gdf_fab.copy()
+gdf_fab["Name"] = gdf_fab["Name"].astype(str).str.strip()
 if "Demand_GJ" in gdf_fab.columns:
     gdf_fab = gdf_fab.drop(columns=["Demand_GJ"])
-
-# --- 4) Fazer merge seguro ---
 gdf_fab = gdf_fab.merge(df_demand, on="Name", how="left")
-
-# verificar quantas plantas ficaram sem demanda
-n_missing = gdf_fab["Demand_GJ"].isna().sum()
-if n_missing > 0:
-    print(f"Atenção: {n_missing} plantas ficaram sem Demand_GJ após o merge. Verifique correspondência de nomes.")
-
-# --- 5) Reprojetar para CRS em metros (só depois do merge) ---
-gdf_fab = gdf_fab.to_crs(5880)
-gdf_merge = gdf_merge.to_crs(5880)
-
-# --- 6) CRIAR CÓPIA DA OFERTA DISPONÍVEL (que será reduzida dinamicamente) ---
-gdf_supply = gdf_merge.copy()
-gdf_supply["oferta_disponivel_GJ"] = gdf_supply["potencial_total_GJ"].copy()
-
-# --- 7) Função MODIFICADA para considerar oferta limitada ---
-def find_radius_for_plant(plant, gdf_polygons_supply, step_km=1, max_radius_km=300):
-    """
-    Retorna o raio mínimo necessário (km) para suprir 100% da demanda da planta,
-    considerando apenas a oferta disponível.
-    Também retorna quais municípios foram usados e quanto foi consumido de cada um.
-    """
-    demand = plant.get("Demand_GJ", None)
-    if pd.isna(demand) or demand is None:
-        name = plant.get("Name", None)
-        if name is not None and name in df_demand["Name"].values:
-            demand = float(df_demand.loc[df_demand["Name"] == name, "Demand_GJ"].iloc[0])
-        else:
-            return None, []
-
-    radius = step_km * 1000  # metros
-    
-    while radius <= max_radius_km * 1000:
-        buffer = plant.geometry.buffer(radius)
-        
-        # municípios dentro do buffer
-        subset = gdf_polygons_supply[gdf_polygons_supply.intersects(buffer)].copy()
-        
-        # oferta disponível total no raio
-        total_disponivel = subset["oferta_disponivel_GJ"].sum()
-        
-        if total_disponivel >= demand:
-            # Alocar a demanda proporcionalmente à oferta disponível de cada município
-            # ou simplesmente consumir sequencialmente até preencher a demanda
-            
-            # Vamos alocar sequencialmente (pode ordenar por proximidade se preferir)
-            demanda_restante = demand
-            alocacoes = []
-            
-            for idx, mun in subset.iterrows():
-                disponivel = mun["oferta_disponivel_GJ"]
-                
-                if demanda_restante <= 0:
-                    break
-                    
-                if disponivel > 0:
-                    consumido = min(disponivel, demanda_restante)
-                    alocacoes.append({
-                        'index': idx,
-                        'consumido_GJ': consumido
-                    })
-                    demanda_restante -= consumido
-            
-            return radius / 1000, alocacoes  # retorna km e lista de alocações
-        
-        radius += step_km * 1000
-
-    return None, []
-
-# --- 8) Aplicar para todas as plantas, ORDENANDO por algum critério ---
-# Você pode ordenar por demanda (maior primeiro), ou por outra prioridade
-# Aqui vamos ordenar por demanda decrescente (plantas maiores têm prioridade)
-
 gdf_fab = gdf_fab[gdf_fab["Demand_GJ"].fillna(0) > 0].copy()
-gdf_fab = gdf_fab.sort_values("Demand_GJ", ascending=False).reset_index(drop=True)
 
-results = []
-
-for idx, plant in gdf_fab.iterrows():
-    r, alocacoes = find_radius_for_plant(plant, gdf_supply)
-    
-    # Registrar resultado
-    demanda_atendida = sum([a['consumido_GJ'] for a in alocacoes])
-    results.append({
-        "Name": plant["Name"],
-        "Demand_GJ": plant["Demand_GJ"],
-        "radius_km": r,
-        "demanda_atendida_GJ": demanda_atendida,
-        "percentual_atendido": (demanda_atendida / plant["Demand_GJ"] * 100) if plant["Demand_GJ"] > 0 else 0
-    })
-    
-    # ATUALIZAR a oferta disponível (reduzir conforme foi consumido)
-    for aloc in alocacoes:
-        gdf_supply.loc[aloc['index'], 'oferta_disponivel_GJ'] -= aloc['consumido_GJ']
-    
-    # Log de progresso
-    if r is not None:
-        print(f"Planta '{plant['Name']}': raio {r:.1f} km, atendida {demanda_atendida:.0f}/{plant['Demand_GJ']:.0f} GJ ({demanda_atendida/plant['Demand_GJ']*100:.1f}%)")
-    else:
-        print(f"Planta '{plant['Name']}': NÃO foi possível atender a demanda de {plant['Demand_GJ']:.0f} GJ mesmo com raio máximo")
-
-df_radius = pd.DataFrame(results)
-
-# --- 9) Verificar oferta final ---
-print(f"\n=== RESUMO ===")
-print(f"Oferta original total: {gdf_merge['potencial_total_GJ'].sum():.0f} GJ")
-print(f"Oferta restante: {gdf_supply['oferta_disponivel_GJ'].sum():.0f} GJ")
-print(f"Oferta consumida: {gdf_merge['potencial_total_GJ'].sum() - gdf_supply['oferta_disponivel_GJ'].sum():.0f} GJ")
-print(f"Demanda total das plantas: {df_radius['Demand_GJ'].sum():.0f} GJ")
-print(f"Demanda atendida: {df_radius['demanda_atendida_GJ'].sum():.0f} GJ")
-#%%
-import pandas as pd
-import numpy as np
-
-# ============================================================
-# Parâmetros fixos
-# ============================================================
-CAMBIO = 5.5  # R$ por US$
-# COST_USD_PER_GJ_PER_KM = 0.0066  # US$/GJ/km
-COST_USD_PER_GJ_PER_KM = 0.01  # US$/GJ/km
-
-# Conversões e custos por GJ
-GJ_PER_TEP = 41.868
-C_trad = 600.0 / GJ_PER_TEP         # R$/TEP -> R$/GJ (combustível tradicional)
-C_resid = 0.0 / GJ_PER_TEP        # R$/GJ (combustível de resíduo)
-C_transp_factor = COST_USD_PER_GJ_PER_KM * CAMBIO  # R$/GJ/km
-
-print(f"C_trad = {C_trad:.6f} R$/GJ")
-print(f"C_resid = {C_resid:.6f} R$/GJ")
-print(f"C_transp_factor = {C_transp_factor:.6f} R$/GJ/km")
-
-# ============================================================
-# Parâmetros de transporte e emissões
-# ============================================================
-truck_payload_t = 20.0               # capacidade útil do caminhão (t)
-LHV_residue_MJ_per_kg = 10.0         # PCI do resíduo (MJ/kg)
-diesel_L_per_km = 3.0               # consumo do caminhão (L/km)
-EF_diesel_kgCO2_per_L = 2.67         # fator de emissão diesel (kgCO2/L)
-
-# Energia transportada por viagem (GJ)
-GJ_per_truck = (truck_payload_t * 1000 * LHV_residue_MJ_per_kg) / 1000  # MJ->GJ
-
-# Emissões na combustão
-EF_trad_kgCO2_per_GJ = 92.8
-EF_resid_ratio = 0.05
-EF_resid_kgCO2_per_GJ = EF_trad_kgCO2_per_GJ * EF_resid_ratio
-
-# ============================================================
-# CAPEX e OPEX do combustível de resíduo (NOVO)
-# ============================================================
-CAPEX_USD_PER_T = 30.0   # US$/t combustível produzido
-OPEX_USD_PER_T = 2.5 # US$/t combustível produzido
-
-GJ_PER_TON_RESID = LHV_residue_MJ_per_kg  # GJ/t (1 t => 1000 kg)
-
-CAPEX_R_per_GJ = (CAPEX_USD_PER_T / GJ_PER_TON_RESID) * CAMBIO
-OPEX_R_per_GJ = (OPEX_USD_PER_T / GJ_PER_TON_RESID) * CAMBIO
-CAPEX_OPEX_R_per_GJ = CAPEX_R_per_GJ + OPEX_R_per_GJ
-
-print(f"CAPEX_R_per_GJ = {CAPEX_R_per_GJ:.2f} R$/GJ")
-print(f"OPEX_R_per_GJ = {OPEX_R_per_GJ:.2f} R$/GJ")
-print(f"CAPEX+OPEX = {CAPEX_OPEX_R_per_GJ:.2f} R$/GJ")
-
-# ============================================================
-# Preparar dados
-# ============================================================
-df_plants = gdf_fab.copy()
-if hasattr(df_plants, "geometry"):
-    df_plants = df_plants.drop(columns=["geometry"], errors="ignore")
-df_plants = df_plants.loc[:, ~df_plants.columns.duplicated()]
-
-if "Name" not in df_plants.columns:
-    raise ValueError("gdf_fab precisa ter coluna 'Name' antes deste cálculo.")
-if "Demand_GJ" not in df_plants.columns:
-    raise ValueError("gdf_fab precisa ter coluna 'Demand_GJ' antes deste cálculo.")
-
-# garantir que df_radius NÃO tenha Demand_GJ
-df_radius_clean = df_radius.drop(columns=["Demand_GJ"], errors="ignore")
-
-df_cost = df_radius_clean.merge(
-    df_plants[["Name", "Demand_GJ"]],
-    on="Name",
-    how="left"
-)
-
-# df_cost["Demand_GJ"] = df_cost["Demand_GJ_y"].combine_first(df_cost["Demand_GJ_x"])
-
-# Remover colunas duplicadas
-# df_cost = df_cost.drop(columns=["Demand_GJ_x", "Demand_GJ_y"])
-# Missing demand?
-if df_cost["Demand_GJ"].isna().sum() > 0:
-    print("Atenção: plantas com Demand_GJ ausente.")
-
-df_cost["radius_km"] = pd.to_numeric(df_cost["radius_km"], errors="coerce")
-
-# ============================================================
-# Cálculos de custo originais
-# ============================================================
-# custo de transporte por GJ (R$/GJ)
-df_cost["C_transp_R_per_GJ"] = df_cost["radius_km"] * C_transp_factor
-
-# custo do combustível de resíduo entregue (sem CAPEX/OPEX ainda)
-df_cost["C_resid_total_R_per_GJ"] = C_resid + df_cost["C_transp_R_per_GJ"]
-
-# ============================================================
-# >>> NOVO: adicionar CAPEX+OPEX por GJ ao custo total do resíduo
-# ============================================================
-df_cost["CAPEX_R_per_GJ"] = CAPEX_R_per_GJ
-df_cost["OPEX_R_per_GJ"] = OPEX_R_per_GJ
-df_cost["CAPEX_OPEX_R_per_GJ"] = CAPEX_OPEX_R_per_GJ
-
-# Custo TOTAL do resíduo (combustível + transporte + CAPEX + OPEX)
-df_cost["C_total_resid_R_per_GJ"] = (
-    df_cost["C_resid_total_R_per_GJ"] + df_cost["CAPEX_OPEX_R_per_GJ"]
-)
-
-# diferença unitária (resíduo - tradicional) R$/GJ
-df_cost["Delta_R_per_GJ"] = df_cost["C_total_resid_R_per_GJ"] - C_trad
-
-# custo anual com resíduo (R$/ano) – total
-df_cost["Custo_anual_resid_R$"] = df_cost["C_total_resid_R_per_GJ"] * df_cost["Demand_GJ"]
-
-# custo anual atual com combustível tradicional (R$/ano)
-df_cost["Custo_anual_trad_R$"] = C_trad * df_cost["Demand_GJ"]
-
-# economia anual (tradicional - resíduo total): positivo = economia; negativo = aumento de custo
-df_cost["Economia_anual_R$"] = df_cost["Custo_anual_trad_R$"] - df_cost["Custo_anual_resid_R$"]
-
-# percentual de mudança (resíduo vs tradicional)
-df_cost["Perc_change_%"] = 100.0 * (df_cost["C_total_resid_R_per_GJ"] / C_trad - 1.0)
-
-# ============================================================
-# Viagens, distâncias e emissões (mantendo o que já tínhamos)
-# ============================================================
-df_cost["GJ_per_truck"] = GJ_per_truck
-df_cost["n_trips"] = np.ceil(df_cost["Demand_GJ"] / df_cost["GJ_per_truck"])
-df_cost["n_trips"] = df_cost["n_trips"].replace([np.inf, -np.inf], np.nan)
-
-df_cost["dist_per_trip_km"] = 2 * df_cost["radius_km"]
-df_cost["total_dist_km"] = df_cost["dist_per_trip_km"] * df_cost["n_trips"]
-
-df_cost["litros_diesel"] = df_cost["total_dist_km"] * diesel_L_per_km
-df_cost["E_transport_kgCO2"] = df_cost["litros_diesel"] * EF_diesel_kgCO2_per_L
-
-df_cost["E_trad_comb_kgCO2"] = df_cost["Demand_GJ"] * EF_trad_kgCO2_per_GJ
-df_cost["E_resid_comb_kgCO2"] = df_cost["Demand_GJ"] * EF_resid_kgCO2_per_GJ
-df_cost["E_total_resid_kgCO2"] = df_cost["E_resid_comb_kgCO2"] + df_cost["E_transport_kgCO2"]
-
-df_cost["Saving_kgCO2"] = df_cost["E_trad_comb_kgCO2"] - df_cost["E_total_resid_kgCO2"]
-df_cost["Saving_percent"] = 100 * df_cost["Saving_kgCO2"] / df_cost["E_trad_comb_kgCO2"]
-
-# ============================================================
-# Colunas finais
-# ============================================================
-cols_out = [
-    "Name", "radius_km", "Demand_GJ",
-    "C_transp_R_per_GJ", "C_resid_total_R_per_GJ",
-    "CAPEX_R_per_GJ", "OPEX_R_per_GJ", "CAPEX_OPEX_R_per_GJ",
-    "C_total_resid_R_per_GJ", "Delta_R_per_GJ",
-    "Custo_anual_trad_R$", "Custo_anual_resid_R$", "Economia_anual_R$", "Perc_change_%",
-    "GJ_per_truck", "n_trips", "dist_per_trip_km", "total_dist_km",
-    "litros_diesel", "E_transport_kgCO2",
-    "E_trad_comb_kgCO2", "E_resid_comb_kgCO2", "E_total_resid_kgCO2",
-    "Saving_kgCO2", "Saving_percent"
-]
-
-df_cost = df_cost[cols_out]
-
-pd.set_option("display.float_format", lambda x: f"{x:,.2f}")
-print(df_cost.head())
-
-df_cost.to_csv(path+"/costs_residue_substitution_per_plant.csv", index=False)
-
+print(f"✓ Demanda calculada para {len(gdf_fab)} plantas")
+print(f"  Demanda total: {gdf_fab['Demand_GJ'].sum():,.0f} GJ")
 
 #%%
-
-# --- Fatores de emissão ---
-EF_trad_kgCO2_per_GJ = 93                     # combustível tradicional (coque)
-EF_resid_kgCO2_per_GJ = 0.05 * EF_trad_kgCO2_per_GJ  # combustível alternativo = 5% do tradicional
-
-EF_transporte_kgCO2_km = 2.7                  # caminhão diesel (aprox.)
-
-# Limpar duplicidades antigas antes de novo merge
-cols = gdf_fab.columns
-
-if "Demand_GJ_x" in cols or "Demand_GJ_y" in cols:
-    gdf_fab["Demand_GJ"] = (
-        gdf_fab.get("Demand_GJ_y", np.nan)
-        .combine_first(gdf_fab.get("Demand_GJ_x", np.nan))
-    )
-    gdf_fab = gdf_fab.drop(
-        columns=[c for c in ["Demand_GJ_x", "Demand_GJ_y"] if c in cols]
-    )
-
-gdf_fab = gdf_fab.merge(
-    df_radius[["Name", "radius_km"]],
-    on="Name",
-    how="left"
-)
-
-# Criar Demand_GJ final escolhendo a coluna correta
-
-# --- Emissões combustíveis ---
-gdf_fab["Emissoes_trad_kgCO2"] = (
-    gdf_fab["Demand_GJ"] * EF_trad_kgCO2_per_GJ
-)
-
-gdf_fab["Emissoes_resid_kgCO2"] = (
-    gdf_fab["Demand_GJ"] * EF_resid_kgCO2_per_GJ
-)
-
-# --- Emissões de transporte ---
-gdf_fab["Emissoes_transporte_kgCO2"] = (
-    gdf_fab["radius_km"] * EF_transporte_kgCO2_km
-)
-
-# --- Emissões totais após substituição ---
-gdf_fab["Emissoes_totais_substituicao_kgCO2"] = (
-    gdf_fab["Emissoes_resid_kgCO2"] + gdf_fab["Emissoes_transporte_kgCO2"]
-)
-
-# --- Redução total de emissões ---
-gdf_fab["Reducao_kgCO2"] = (
-    gdf_fab["Emissoes_trad_kgCO2"] - gdf_fab["Emissoes_totais_substituicao_kgCO2"]
-)
+# ============================================================
+# 6) Parâmetros de emissões e transporte
+# ============================================================
+# Transporte / emissões
+GJ_per_truck = (TRUCK_PAYLOAD_T * 1000 * LHV_RESIDUE_MJ_PER_KG) / 1000.0
+EF_resid_kgCO2_per_GJ = EF_RESID_FRACTION * EF_TRAD_KGCO2_PER_GJ
 
 #%%
-# Unir o raio calculado ao gdf_fab
-df_final = gdf_fab.merge(df_radius, on="Name", how="left")
-df_final = gdf_fab.merge(df_cost,on="Name",how="left")
-
-output_path = path+"/resultados_por_planta.xlsx"
-
-df_final.to_excel(output_path, index=False)
-
-print(f"Arquivo exportado com sucesso para: {output_path}")
-#%%
-import numpy as np
-import pandas as pd
-import geopandas as gpd
-from pyomo.environ import ConcreteModel, Var, NonNegativeReals, Objective, Constraint, SolverFactory, value
-from amplpy import modules
-
 # ============================================================
-# 0) PARAMETROS DO PROBLEMA
+# 7) Preparar dados para otimização (CRS métrico)
 # ============================================================
-alpha = 0.4  # percentual de substituição (ex: 30%) -> ajuste aqui
+print("\n>>> Preparando dados para otimização...")
+gdf_fab_m = gdf_fab.to_crs(5880).copy()
+gdf_mun_m = gdf_merge.to_crs(5880).copy()
 
-C_base_R_per_GJ = float(C_resid) + float(CAPEX_OPEX_R_per_GJ)  # custo do resíduo "na porta", sem transporte
+gdf_fab_m["Name"] = gdf_fab_m["Name"].astype(str).str.strip()
+gdf_mun_m["CD_MUN"] = gdf_mun_m["CD_MUN"].astype(str).str.zfill(7)
 
-# ============================================================
-# 1) PREPARAR DADOS (PLANTAS E MUNICIPIOS)
-# ============================================================
-# Garantir CRS métrico
-if str(gdf_fab.crs) != "EPSG:5880":
-    gdf_fab_m = gdf_fab.to_crs(5880).copy()
-else:
-    gdf_fab_m = gdf_fab.copy()
+gdf_mun_m["MSW_GJ"] = gdf_mun_m["MSW_GJ"].fillna(0.0)
+gdf_mun_m["AGRO_GJ"] = gdf_mun_m["AGRO_GJ"].fillna(0.0)
+gdf_mun_m["IW_GJ"] = gdf_mun_m["IW_GJ"].fillna(0.0)
 
-if str(gdf_merge.crs) != "EPSG:5880":
-    gdf_mun_m = gdf_merge.to_crs(5880).copy()
-else:
-    gdf_mun_m = gdf_merge.copy()
+gdf_mun_m = gdf_mun_m[(gdf_mun_m["MSW_GJ"] + gdf_mun_m["AGRO_GJ"] + gdf_mun_m["IW_GJ"]) > 0].copy()
 
-# filtrar plantas com demanda >0
-gdf_fab_m = gdf_fab_m[gdf_fab_m["Demand_GJ"].fillna(0) > 0].copy()
 
-# oferta municipal
-gdf_mun_m["Supply_GJ"] = gdf_mun_m["potencial_total_GJ"].fillna(0)
-
-# reduzir tamanho do problema (opcional mas recomendado):
-# manter só municipios com oferta > 0
-gdf_mun_m = gdf_mun_m[gdf_mun_m["Supply_GJ"] > 0].copy()
-
-# usar centróide do município para distância (simplificação padrão)
+# Centroides para distância
 gdf_mun_m["centroid"] = gdf_mun_m.geometry.centroid
 
-# criar tabelas base
+# Conjuntos
 plants = gdf_fab_m[["Name", "Demand_GJ", "geometry"]].copy()
-mun = gdf_mun_m[["CD_MUN", "Supply_GJ", "centroid"]].copy()
+mun = gdf_mun_m[["CD_MUN", "MSW_GJ", "AGRO_GJ", "IW_GJ", "centroid"]].copy()
 
-plants["Name"] = plants["Name"].astype(str)
-mun["CD_MUN"] = mun["CD_MUN"].astype(str).str.zfill(7)
-
-# dicionários de demanda e oferta
 Demand = plants.set_index("Name")["Demand_GJ"].to_dict()
-Supply = mun.set_index("CD_MUN")["Supply_GJ"].to_dict()
+
+Supply_type = {}
+for _, r in mun.iterrows():
+    m = r["CD_MUN"]
+    Supply_type[(m, "MSW")] = float(r["MSW_GJ"])
+    Supply_type[(m, "AGRO")] = float(r["AGRO_GJ"])
+    Supply_type[(m, "IW")]  = float(r["IW_GJ"])
+
 
 P = list(Demand.keys())
-M = list(Supply.keys())
+M = sorted({m for (m, t) in Supply_type.keys()})
+T = ["MSW", "AGRO", "IW"]
 
-# ============================================================
-# 2) MATRIZ DE DISTÂNCIAS (km) ENTRE PLANTA E MUNICÍPIO
-# ============================================================
-# cálculo vetorizado simples (pode ser pesado se M for grande; depois te mostro otimização)
 plant_geom = plants.set_index("Name")["geometry"]
 mun_cent = mun.set_index("CD_MUN")["centroid"]
 
-MAX_DIST_KM = 300.0
+print(f"✓ {len(P)} plantas")
+print(f"✓ {len(M)} municípios com oferta")
+print(f"✓ 2 tipos de resíduo (MSW, AGRO)")
 
-dist_km = {}
+#%%
+# ============================================================
+# 8) Função auxiliar: calcular distâncias viáveis
+# ============================================================
+def calcular_distancias_viaveis(plantas_gdf, municipios_gdf, max_dist_km):
+    """
+    Calcula distâncias entre plantas e municípios <= max_dist_km.
+    
+    Retorna dict {(planta, municipio): distancia_km}
+    """
+    dist_dict = {}
+    plant_geom_idx = plantas_gdf.set_index("Name")["geometry"]
+    mun_cent_idx = municipios_gdf.set_index("CD_MUN")["centroid"]
+    
+    for p in plant_geom_idx.index:
+        distancias_km = mun_cent_idx.distance(plant_geom_idx.loc[p]) / 1000.0
+        distancias_viaveis = distancias_km[distancias_km <= max_dist_km]
+        for m, d in distancias_viaveis.items():
+            dist_dict[(p, m)] = float(d)
+    
+    return dist_dict
 
-for p in P:
-    gp = plant_geom.loc[p]
+#%%
+# ============================================================
+# 9) Distâncias <= MAX_DIST_KM e pares (p,m,t)
+# ============================================================
+t0 = time.time()
+print(f"\n>>> Calculando distâncias (máx {MAX_DIST_KM} km)...")
 
-    # distâncias (km) da planta p para todos municípios
-    d_km = mun_cent.distance(gp) / 1000.0
+dist_km = calcular_distancias_viaveis(plants, mun, MAX_DIST_KM)
 
-    for m, dist in d_km.items():
-        if dist <= MAX_DIST_KM:
-            dist_km[(p, m)] = float(dist)
-
-PM = list(dist_km.keys()) #pares dentro de 300km
-
-# custo unitário total por par (R$/GJ)
-
-c_pm = {
-        (p, m): 
-        C_base_R_per_GJ + C_transp_factor * dist_km[(p, m)] 
-        for (p, m) in PM
-        }
+# Pares com tipo só onde há oferta
+PMT = []
+for (p, m), d in dist_km.items():
+    for t in ["MSW", "AGRO", "IW"]:
+        if Supply_type.get((m, t), 0.0) > 0:
+            PMT.append((p, m, t))
 
 # ============================================================
-# 3) MODELO PYOMO (LP)
+# CUSTO POR PAR - DIFERENCIADO POR TIPO
 # ============================================================
-model = ConcreteModel()
+c_pmt = {}
+for (p, m, t) in PMT:
+    # Custo base depende do tipo de resíduo
+    custo_base = C_base_tipo[t]
+    # Custo de transporte é igual para ambos
+    custo_transporte = C_transp_factor * dist_km[(p, m)]
+    # Custo total
+    c_pmt[(p, m, t)] = custo_base + custo_transporte
 
-# Variável: x[p,m] = GJ de resíduo do município m usado na planta p
-model.x = Var(PM, domain=NonNegativeReals)
+# Municípios ativos por tipo
+M_active_type = sorted({(m, t) for (_, m, t) in PMT})
 
-# Objetivo: minimizar custo total
-def obj_rule(mod):
-    return sum(mod.x[p, m] * c_pm[(p, m)] for (p, m) in PM)
+print(f"✓ Pares (planta, município) viáveis: {len(dist_km):,}")
+print(f"✓ Variáveis de decisão (p,m,t): {len(PMT):,}")
+print(f"✓ Tempo: {time.time()-t0:.1f}s")
 
-model.obj = Objective(rule=obj_rule, sense=1)  # 1 = minimize
-
-# Restrição: substituição por planta (igualdade)
+# Checagem de viabilidade
 total_demand = sum(Demand.values())
+target = ALPHA * total_demand
+accessible_supply = sum(Supply_type[(m, t)] for (m, t) in M_active_type)
 
+print(f"\n=== ANÁLISE DE VIABILIDADE ===")
+print(f"Demanda total: {total_demand:,.0f} GJ")
+print(f"Meta substituição ({ALPHA:.0%}): {target:,.0f} GJ")
+print(f"Oferta acessível (<= {MAX_DIST_KM} km): {accessible_supply:,.0f} GJ")
+
+if accessible_supply + 1e-6 < target:
+    print("⚠️ ATENÇÃO: Provável inviabilidade!")
+    print("   Oferta acessível < meta de substituição")
+    print("   Sugestões: aumentar MAX_DIST_KM ou reduzir ALPHA")
+
+# Validação final
+if not PMT:
+    raise ValueError(
+        "Nenhum par (planta, município, tipo) viável encontrado. "
+        "Aumente MAX_DIST_KM ou verifique os dados de entrada."
+    )
+
+#%%
+# ============================================================
+# 10) Pyomo - minimizar custo, substituição TOTAL
+# ============================================================
+print("\n>>> Construindo modelo Pyomo...")
+t0 = time.time()
+
+model = ConcreteModel()
+model.x = Var(PMT, domain=NonNegativeReals)
+
+def obj_rule(mod):
+    return sum(mod.x[p, m, t] * c_pmt[(p, m, t)] for (p, m, t) in PMT)
+
+model.obj = Objective(rule=obj_rule, sense=minimize)
+
+# (i) Substituição TOTAL
 model.total_sub = Constraint(
-    expr=sum(model.x[p, m] for (p, m) in PM) == alpha * total_demand
+    expr=sum(model.x[p, m, t] for (p, m, t) in PMT) == ALPHA * total_demand
 )
 
+# (ii) Limite por planta
 def plant_cap_rule(mod, p):
-    return sum(mod.x[p, m] for (pp, m) in PM if pp == p) <= Demand[p]
+    return sum(mod.x[p, m, t] for (pp, m, t) in PMT if pp == p) <= Demand[p]
 
 model.plant_cap = Constraint(P, rule=plant_cap_rule)
 
-# Restrição: oferta municipal
-def supply_rule(mod, m):
-    pairs_m = [(p, mm) for (p, mm) in PM if mm == m]
-    if len(pairs_m) == 0:
-        return Constraint.Skip
-    return sum(mod.x[p, m] for (p, mm) in pairs_m) <= Supply[m]
+# (iii) Oferta por município e tipo
+def supply_type_rule(mod, m, t):
+    return sum(
+        mod.x[p, m, t] for (p, mm, tt) in PMT if mm == m and tt == t
+    ) <= Supply_type[(m, t)]
 
-model.supply = Constraint(M, rule=supply_rule)
+model.supply_type = Constraint(M_active_type, rule=supply_type_rule)
 
+print(f"✓ Modelo construído em {time.time()-t0:.1f}s")
+print(f"  Variáveis de decisão: {len(PMT):,}")
+print(f"  Restrições: {len(M_active_type) + len(P) + 1:,}")
+print(f"  Memória estimada: ~{len(PMT) * 8 / 1e6:.1f} MB")
 
+#%%
 # ============================================================
-# 4) RESOLVER
+# 11) Resolver com solver
 # ============================================================
-# Tente primeiro glpk ou cbc:
-# solver = SolverFactory("glpk")
-# solver = SolverFactory("cbc")
-# solver = SolverFactory('ipopt')
+print("\n>>> Resolvendo otimização...")
+t0_solve = time.time()
 
-import time
+solver_name = "ipopt"
+try:
+    from amplpy import modules
+    solver = SolverFactory(
+        solver_name + "nl",
+        executable=modules.find(solver_name),
+        solve_io="nl"
+    )
+    
+    result = solver.solve(model, tee=True)
+    
+    # Verificar status
+    if result.solver.status != SolverStatus.ok:
+        raise RuntimeError(f"Solver falhou: {result.solver.status}")
+    
+    if result.solver.termination_condition != TerminationCondition.optimal:
+        print(f"⚠️ Solução pode não ser ótima: {result.solver.termination_condition}")
+    else:
+        print("✓ Solução ótima encontrada")
+    
+except Exception as e:
+    print(f"❌ Erro na otimização: {e}")
+    raise
 
+elapsed_solve = time.time() - t0_solve
+print(f"✓ Tempo de solução: {elapsed_solve:.1f}s")
+
+#%%
+# ============================================================
+# 12) EXTRAIR RESULTADOS + % MSW/AGRO + emissões/custos/CMA
+# ============================================================
+print("\n>>> Extraindo resultados...")
 t0 = time.time()
-print(">>> Iniciando otimização Pyomo...")
 
-solver_name = "ipopt"  # "highs", "cbc",  "couenne", "bonmin", "ipopt", "scip", or "gcg".
-solver = SolverFactory(solver_name+"nl", executable=modules.find(solver_name), solve_io="nl")
-
-result = solver.solve(model, tee=True)
-
-t1 = time.time()
-elapsed = t1 - t0
-
-print(f">>> Otimização finalizada em {elapsed:.1f} segundos ({elapsed/60:.2f} minutos)")
-# ============================================================
-# 5) EXTRAIR RESULTADOS (COM CUSTOS/EMISSÕES/CMA)
-# ============================================================
-from pyomo.environ import value
-import numpy as np
-import pandas as pd
-
-# ---- 5.1 Fluxos positivos (df_flow) ----
 rows = []
-for (p, m) in PM:  # só pares existentes no modelo
-    xval = value(model.x[p, m])
+for (p, m, t) in PMT:
+    xval = value(model.x[p, m, t])
     if xval is not None and xval > 1e-6:
         gj = float(xval)
         dkm = float(dist_km[(p, m)])
-        cunit = float(c_pm[(p, m)])
+        cunit = float(c_pmt[(p, m, t)])
         rows.append({
             "Name": p,
             "CD_MUN": m,
+            "Tipo": t,
             "GJ_alocado": gj,
             "dist_km": dkm,
             "custo_unit_R_per_GJ": cunit,
+            "custo_base_R_per_GJ": C_base_tipo[t],  # Adiciona custo base específico
+            "custo_transporte_R_per_GJ": C_transp_factor * dkm,  # Custo transporte separado
             "custo_total_R": gj * cunit
         })
 
 df_flow = pd.DataFrame(rows)
 
 if df_flow.empty:
-    print("⚠️ df_flow vazio: nenhum fluxo positivo encontrado. Verifique viabilidade/alpha/MAX_DIST_KM.")
+    print("⚠️ df_flow vazio: modelo pode estar inviável ou alpha=0.")
+    # Criar arquivo de erro
+    out_xlsx = path + f"/otimizacao_ERRO_alpha_{int(ALPHA*100)}pct.xlsx"
+    with pd.ExcelWriter(out_xlsx, engine="openpyxl") as writer:
+        pd.DataFrame([{
+            "msg": "df_flow vazio - verifique viabilidade (alpha, MAX_DIST, oferta)",
+            "solver_status": str(result.solver.status),
+            "termination_condition": str(result.solver.termination_condition)
+        }]).to_excel(writer, sheet_name="erro", index=False)
+    print(f"Arquivo de erro criado: {out_xlsx}")
 else:
-    # ---- 5.2 Cálculos adicionais no nível do fluxo ----
-    # Transporte: ida e volta
+    # Transporte e emissões
     df_flow["dist_roundtrip_km"] = 2.0 * df_flow["dist_km"]
-
-    # Número de viagens para transportar o GJ alocado
-    # (GJ_per_truck já definido no seu script)
     df_flow["n_trips"] = np.ceil(df_flow["GJ_alocado"] / GJ_per_truck)
-
-    # Distância total rodada pelo caminhão para esse fluxo
     df_flow["total_dist_km"] = df_flow["n_trips"] * df_flow["dist_roundtrip_km"]
-
-    # Consumo de diesel e emissões de transporte
-    df_flow["litros_diesel"] = df_flow["total_dist_km"] * diesel_L_per_km
-    df_flow["E_transporte_kgCO2"] = df_flow["litros_diesel"] * EF_diesel_kgCO2_per_L
-
-    # Emissões combustão (original e novo) ASSOCIADAS AO GJ SUBSTITUÍDO
-    df_flow["E_original_kgCO2"] = df_flow["GJ_alocado"] * EF_trad_kgCO2_per_GJ
+    df_flow["litros_diesel"] = df_flow["total_dist_km"] * DIESEL_CONSUMPTION_L_PER_KM
+    df_flow["E_transporte_kgCO2"] = df_flow["litros_diesel"] * EF_DIESEL_KGCO2_PER_L
+    
+    df_flow["E_original_kgCO2"] = df_flow["GJ_alocado"] * EF_TRAD_KGCO2_PER_GJ
     df_flow["E_nova_comb_kgCO2"] = df_flow["GJ_alocado"] * EF_resid_kgCO2_per_GJ
-    df_flow["E_nova_total_kgCO2"] = df_flow["E_nova_comb_kgCO2"] + df_flow["E_transporte_kgCO2"]
-
-    # Diferença de emissões (redução) e custos de referência
-    df_flow["Delta_emissoes_kgCO2"] = df_flow["E_original_kgCO2"] - df_flow["E_nova_total_kgCO2"]
-
-    df_flow["Custo_original_R"] = df_flow["GJ_alocado"] * C_trad
-    df_flow["Delta_custo_R"] = df_flow["custo_total_R"] - df_flow["Custo_original_R"]
-
-    # CMA no nível do fluxo (R$/tCO2)
-    df_flow["CMA_R_per_tCO2"] = np.where(
-        df_flow["Delta_emissoes_kgCO2"] > 0,
-        df_flow["Delta_custo_R"] * 1000.0 / df_flow["Delta_emissoes_kgCO2"],
-        np.nan
+    df_flow["E_nova_total_kgCO2"] = (
+        df_flow["E_nova_comb_kgCO2"] + df_flow["E_transporte_kgCO2"]
     )
-
-    # ---- 5.3 Tabela por planta com tudo o que você pediu ----
-    # Demanda original por planta (vem do dict Demand do modelo)
+    
+    df_flow["Delta_emissoes_kgCO2"] = (
+        df_flow["E_original_kgCO2"] - df_flow["E_nova_total_kgCO2"]
+    )
+    
+    df_flow["Custo_original_R"] = df_flow["GJ_alocado"] * C_TRAD_R_PER_GJ
+    df_flow["Delta_custo_R"] = df_flow["custo_total_R"] - df_flow["Custo_original_R"]
+    
+    # CMA usando pd.NA
+    df_flow["CMA_R_per_tCO2"] = df_flow["Delta_custo_R"].where(
+        df_flow["Delta_emissoes_kgCO2"] > 0,
+        pd.NA
+    ) * 1000.0 / df_flow["Delta_emissoes_kgCO2"]
+    
+    # Demanda original por planta
     df_demand_plants = pd.DataFrame({
         "Name": list(Demand.keys()),
         "Demand_original_GJ": list(Demand.values())
     })
-
+    
+    # Agregação por planta
     df_plant = (
         df_flow.groupby("Name", as_index=False)
         .agg(
-            GJ_substituido=("GJ_alocado", "sum"),
+            Demand_substituida_GJ=("GJ_alocado", "sum"),
             custo_novo_R=("custo_total_R", "sum"),
             custo_original_R=("Custo_original_R", "sum"),
             Delta_custo_R=("Delta_custo_R", "sum"),
             Emissao_original_kgCO2=("E_original_kgCO2", "sum"),
             Emissao_nova_kgCO2=("E_nova_total_kgCO2", "sum"),
             Delta_emissoes_kgCO2=("Delta_emissoes_kgCO2", "sum"),
-            dist_media_km=("dist_km", lambda s: np.average(s, weights=df_flow.loc[s.index, "GJ_alocado"])),
-            total_dist_km=("total_dist_km", "sum"),
+            dist_media_km=(
+                "dist_km",
+                lambda s: np.average(
+                    s, weights=df_flow.loc[s.index, "GJ_alocado"]
+                )
+            ),
             litros_diesel=("litros_diesel", "sum"),
+            total_dist_km=("total_dist_km", "sum"),
         )
     )
-
-    # juntar demanda original
+    
     df_plant = df_plant.merge(df_demand_plants, on="Name", how="left")
-
-    # percentual substituído efetivo
-    df_plant["Perc_substituido_%"] = 100.0 * df_plant["GJ_substituido"] / df_plant["Demand_original_GJ"]
-
-    # custos médios
-    df_plant["custo_medio_novo_R_per_GJ"] = df_plant["custo_novo_R"] / df_plant["GJ_substituido"]
-    df_plant["custo_medio_original_R_per_GJ"] = df_plant["custo_original_R"] / df_plant["GJ_substituido"]
-
-    # CMA por planta (R$/tCO2)
-    df_plant["CMA_R_per_tCO2"] = np.where(
-        df_plant["Delta_emissoes_kgCO2"] > 0,
-        df_plant["Delta_custo_R"] * 1000.0 / df_plant["Delta_emissoes_kgCO2"],
-        np.nan
+    df_plant["Perc_substituido_%"] = (
+        100.0 * df_plant["Demand_substituida_GJ"] / df_plant["Demand_original_GJ"]
     )
-
-    # ---- 5.4 Totais do sistema (resumo) ----
+    
+    df_plant["CMA_R_per_tCO2"] = df_plant["Delta_custo_R"].where(
+        df_plant["Delta_emissoes_kgCO2"] > 0,
+        pd.NA
+    ) * 1000.0 / df_plant["Delta_emissoes_kgCO2"]
+    
+    # % MSW vs % AGRO (sistema)
+    total_gj = df_flow["GJ_alocado"].sum()
+    by_type = df_flow.groupby("Tipo")["GJ_alocado"].sum()
+    
+    perc_msw = 100.0 * by_type.get("MSW", 0.0) / total_gj if total_gj > 0 else 0.0
+    perc_agro = 100.0 * by_type.get("AGRO", 0.0) / total_gj if total_gj > 0 else 0.0
+    perc_iw = 100.0 * by_type.get("IW", 0.0) / total_gj if total_gj > 0 else 0.
+    
+    # Custos por tipo
+    by_type_custo = df_flow.groupby("Tipo")["custo_total_R"].sum()
+    custo_msw_total = by_type_custo.get("MSW", 0.0)
+    custo_agro_total = by_type_custo.get("AGRO", 0.0)
+    custo_iw_total = by_type_custo.get("IW", 0.0)
+    
+    # Resumo do sistema
     total_cost_new = df_flow["custo_total_R"].sum()
     total_cost_old = df_flow["Custo_original_R"].sum()
     total_delta_cost = df_flow["Delta_custo_R"].sum()
-
+    
     total_E_old = df_flow["E_original_kgCO2"].sum()
     total_E_new = df_flow["E_nova_total_kgCO2"].sum()
     total_delta_E = df_flow["Delta_emissoes_kgCO2"].sum()
-
-    total_GJ = df_flow["GJ_alocado"].sum()
-
-    CMA_system = (total_delta_cost * 1000.0 / total_delta_E) if total_delta_E > 0 else np.nan
-
+    
+    CMA_system = (
+        (total_delta_cost * 1000.0 / total_delta_E)
+        if total_delta_E > 0
+        else np.nan
+    )
+    
     df_summary = pd.DataFrame([{
-        "alpha": alpha,
-        "GJ_substituidos_total": total_GJ,
+        "alpha": ALPHA,
+        "MAX_DIST_KM": MAX_DIST_KM,
+        "GJ_substituidos_total": total_gj,
+        "Perc_MSW_%": perc_msw,
+        "Perc_AGRO_%": perc_agro,
+        "Perc_IW_%": perc_iw,
+        "GJ_MSW": by_type.get("MSW", 0.0),
+        "GJ_AGRO": by_type.get("AGRO", 0.0),
+        "GJ_IW": by_type.get("IW", 0.0),
+        "Custo_MSW_R": custo_msw_total,
+        "Custo_AGRO_R": custo_agro_total,
+        "Custo_IW_R": custo_iw_total,
+        "Custo_base_MSW_R_per_GJ": C_base_tipo['MSW'],
+        "Custo_base_AGRO_R_per_GJ": C_base_tipo['AGRO'],
+        "Custo_base_IW_R_per_GJ": C_base_tipo['IW'],
         "custo_novo_total_R": total_cost_new,
         "custo_original_total_R": total_cost_old,
         "Delta_custo_total_R": total_delta_cost,
         "Emissao_original_total_kgCO2": total_E_old,
         "Emissao_nova_total_kgCO2": total_E_new,
         "Delta_emissoes_total_kgCO2": total_delta_E,
-        "CMA_sistema_R_per_tCO2": CMA_system
+        "CMA_sistema_R_per_tCO2": CMA_system,
+        "tempo_solucao_s": elapsed_solve,
+        "solver_status": str(result.solver.status),
+        "termination_condition": str(result.solver.termination_condition)
     }])
+    
+    print("\n" + "="*60)
+    print("RESULTADO DO SISTEMA")
+    print("="*60)
+    print(f"Substituição alvo (alpha): {ALPHA:.1%}")
+    print(f"GJ substituídos: {total_gj:,.0f} GJ")
+    print(f"  - MSW:  {by_type.get('MSW', 0.0):,.0f} GJ ({perc_msw:.1f}%)")
+    print(f"  - AGRO: {by_type.get('AGRO', 0.0):,.0f} GJ ({perc_agro:.1f}%)")
+    print(f"  - IW: {by_type.get('IW', 0.0):,.0f} GJ ({perc_iw:.1f}%)")
+    print(f"\nCustos por tipo:")
+    print(f"  MSW:  {custo_msw_total:,.0f} R$ (base: {C_base_tipo['MSW']:.2f} R$/GJ)")
+    print(f"  AGRO: {custo_agro_total:,.0f} R$ (base: {C_base_tipo['AGRO']:.2f} R$/GJ)")
+    print(f"  IW: {custo_agro_total:,.0f} R$ (base: {C_base_tipo['IW']:.2f} R$/GJ)")
+    print(f"\nCustos totais:")
+    print(f"  Custo novo:      {total_cost_new:,.0f} R$")
+    print(f"  Custo original:  {total_cost_old:,.0f} R$")
+    print(f"  Δ custo:         {total_delta_cost:,.0f} R$")
+    print(f"\nEmissões:")
+    print(f"  Original:   {total_E_old/1000:,.0f} tCO2")
+    print(f"  Nova:       {total_E_new/1000:,.0f} tCO2")
+    print(f"  Redução:    {total_delta_E/1000:,.0f} tCO2")
+    print(f"\nCMA sistema: {CMA_system:,.2f} R$/tCO2")
+    print("="*60)
 
-    print("\n=== RESULTADO OTIMIZAÇÃO ===")
-    print(f"Substituição alpha = {alpha:.2%}")
-    print(f"GJ substituídos total = {total_GJ:,.0f}")
-    print(f"Custo total novo (R$) = {total_cost_new:,.0f}")
-    print(f"Custo total original (R$) = {total_cost_old:,.0f}")
-    print(f"Delta custo (R$) = {total_delta_cost:,.0f}")
-    print(f"Emissão original (tCO2) = {total_E_old/1000:,.0f}")
-    print(f"Emissão nova (tCO2) = {total_E_new/1000:,.0f}")
-    print(f"Redução (tCO2) = {total_delta_E/1000:,.0f}")
-    print(f"CMA sistema (R$/tCO2) = {CMA_system:,.2f}")
-
-
-# ============================================================
-# 6) EXPORTAR (COM NOVAS ABAS)
-# ============================================================
-out_xlsx = path + f"/otimizacao_substituicao_alpha_{int(alpha*100)}pct.xlsx"
-with pd.ExcelWriter(out_xlsx, engine="openpyxl") as writer:
-    if not df_flow.empty:
-        df_summary.to_excel(writer, sheet_name="resumo_sistema", index=False)
-        df_plant.to_excel(writer, sheet_name="resultados_por_planta", index=False)
-        df_flow.to_excel(writer, sheet_name="fluxos_planta_mun", index=False)
-    else:
-        # export mínimo para debug
-        pd.DataFrame([{"msg": "df_flow vazio - verifique viabilidade"}]).to_excel(writer, sheet_name="erro", index=False)
-
-print(f"\nArquivo exportado: {out_xlsx}")
+print(f"✓ Resultados extraídos em {time.time()-t0:.1f}s")
 
 #%%
+# ============================================================
+# 13) EXPORTAR
+# ============================================================
+print("\n>>> Exportando resultados...")
+out_xlsx = path + f"/otimizacao_substituicao_alpha_{int(ALPHA*100)}pct_tipo.xlsx"
 
-import geopandas as gpd
-import pandas as pd
-import numpy as np
-from shapely.geometry import LineString
-import folium
+with pd.ExcelWriter(out_xlsx, engine="openpyxl") as writer:
+    if df_flow.empty:
+        pd.DataFrame([{
+            "msg": "df_flow vazio - verifique viabilidade (alpha, MAX_DIST, oferta)"
+        }]).to_excel(writer, sheet_name="erro", index=False)
+    else:
+        df_summary.to_excel(writer, sheet_name="resumo_sistema", index=False)
+        df_plant.to_excel(writer, sheet_name="resultados_por_planta", index=False)
+        df_flow.to_excel(writer, sheet_name="fluxos_planta_mun_tipo", index=False)
+        
+        # Criar planilha com custos por tipo
+        df_custos_tipo = pd.DataFrame([
+            {
+                'Tipo': 'MSW',
+                'Custo_materia_prima_R_per_GJ': C_MSW_R_PER_GJ,
+                'CAPEX_R_per_GJ': (CAPEX_MSW_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO,
+                'OPEX_R_per_GJ': (OPEX_MSW_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO,
+                'Total_base_R_per_GJ': C_base_tipo['MSW'],
+                'GJ_utilizado': by_type.get('MSW', 0.0),
+                'Custo_total_R': custo_msw_total
+            },
+            {
+                'Tipo': 'AGRO',
+                'Custo_materia_prima_R_per_GJ': C_AGRO_R_PER_GJ,
+                'CAPEX_R_per_GJ': (CAPEX_AGRO_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO,
+                'OPEX_R_per_GJ': (OPEX_AGRO_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO,
+                'Total_base_R_per_GJ': C_base_tipo['AGRO'],
+                'GJ_utilizado': by_type.get('AGRO', 0.0),
+                'Custo_total_R': custo_agro_total
+            },
+            {
+                'Tipo': 'IW',
+                'Custo_materia_prima_R_per_GJ': C_IW_R_PER_GJ,
+                'CAPEX_R_per_GJ': (CAPEX_IW_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO,
+                'OPEX_R_per_GJ': (OPEX_IW_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO,
+                'Total_base_R_per_GJ': C_base_tipo['IW'],
+                'GJ_utilizado': by_type.get('IW', 0.0),
+                'Custo_total_R': custo_iw_total
+            }
+        ])
+        df_custos_tipo.to_excel(writer, sheet_name="custos_por_tipo", index=False)
 
-# =========================
-# 1) Preparar geometrias em lat/lon (EPSG:4326)
-# =========================
-gdf_fab_ll = gdf_fab.to_crs(4326).copy()
-gdf_mun_ll = gdf_merge.to_crs(4326).copy()
+print(f"✓ Arquivo Excel exportado: {out_xlsx}")
 
-gdf_mun_ll["CD_MUN"] = gdf_mun_ll["CD_MUN"].astype(str).str.zfill(7)
+#%%
+# ============================================================
+# 14) LOG E CHECKPOINT
+# ============================================================
+# Salvar log de execução
+log_file = path + f"/log_otimizacao_alpha_{int(ALPHA*100)}pct.txt"
+with open(log_file, 'w', encoding='utf-8') as f:
+    f.write(f"=== LOG DE EXECUÇÃO ===\n")
+    f.write(f"Data/Hora: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    f.write(f"Tempo total: {elapsed_solve:.1f}s\n\n")
+    
+    f.write(f"=== PARÂMETROS ===\n")
+    f.write(f"Alpha: {ALPHA}\n")
+    f.write(f"MAX_DIST_KM: {MAX_DIST_KM}\n")
+    f.write(f"Solver: {solver_name}\n\n")
+    
+    f.write(f"=== CUSTOS DIFERENCIADOS ===\n")
+    f.write(f"MSW - Custo base: {C_base_tipo['MSW']:.2f} R$/GJ\n")
+    f.write(f"  - Matéria-prima: {C_MSW_R_PER_GJ:.4f} R$/GJ\n")
+    f.write(f"  - CAPEX: {(CAPEX_MSW_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO:.2f} R$/GJ\n")
+    f.write(f"  - OPEX: {(OPEX_MSW_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO:.2f} R$/GJ\n\n")
+    f.write(f"AGRO - Custo base: {C_base_tipo['AGRO']:.2f} R$/GJ\n")
+    f.write(f"  - Matéria-prima: {C_AGRO_R_PER_GJ:.4f} R$/GJ\n")
+    f.write(f"  - CAPEX: {(CAPEX_AGRO_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO:.2f} R$/GJ\n")
+    f.write(f"  - OPEX: {(OPEX_AGRO_USD_PER_T / LHV_RESIDUE_MJ_PER_KG) * CAMBIO:.2f} R$/GJ\n\n")
+    
+    f.write(f"Status solver: {result.solver.status}\n")
+    f.write(f"Condição término: {result.solver.termination_condition}\n\n")
+    
+    if not df_flow.empty:
+        f.write(f"=== RESULTADOS ===\n")
+        f.write(f"GJ substituídos: {total_gj:,.0f}\n")
+        f.write(f"  - MSW: {by_type.get('MSW', 0.0):,.0f} GJ ({perc_msw:.1f}%)\n")
+        f.write(f"  - AGRO: {by_type.get('AGRO', 0.0):,.0f} GJ ({perc_agro:.1f}%)\n\n")
+        f.write(f"Custos:\n")
+        f.write(f"  - MSW: {custo_msw_total:,.0f} R$\n")
+        f.write(f"  - AGRO: {custo_agro_total:,.0f} R$\n\n")
+        f.write(f"CMA sistema: {CMA_system:,.2f} R$/tCO2\n")
+        f.write(f"Redução emissões: {total_delta_E/1000:,.0f} tCO2\n")
 
-# centróide dos municípios (em lat/lon ok para visualização)
-gdf_mun_ll["centroid"] = gdf_mun_ll.geometry.centroid
+print(f"✓ Log salvo: {log_file}")
 
-# dicionários de geometria
-plant_pt = gdf_fab_ll.set_index("Name").geometry.to_dict()
-mun_pt   = gdf_mun_ll.set_index("CD_MUN")["centroid"].to_dict()
+# Salvar checkpoint
+checkpoint_file = path + '/checkpoint_otimizacao.pkl'
+checkpoint = {
+    'dist_km': dist_km,
+    'PMT': PMT,
+    'c_pmt': c_pmt,
+    'Demand': Demand,
+    'Supply_type': Supply_type,
+    'parametros': {
+        'ALPHA': ALPHA,
+        'MAX_DIST_KM': MAX_DIST_KM,
+        'C_TRAD_R_PER_GJ': C_TRAD_R_PER_GJ,
+        'C_base_MSW': C_base_tipo['MSW'],
+        'C_base_AGRO': C_base_tipo['AGRO'],
+        'C_transp_factor': C_transp_factor
+    }
+}
 
-# =========================
-# 2) (Opcional) reduzir número de linhas para não ficar pesado
-#    Ex.: manter só fluxos acima de um limiar
-# =========================
-df_lines = df_flow.copy()
-df_lines["CD_MUN"] = df_lines["CD_MUN"].astype(str).str.zfill(7)
+with open(checkpoint_file, 'wb') as f:
+    pickle.dump(checkpoint, f)
 
-# exemplo: manter só fluxos >= 1% do total ou >= X GJ
-threshold = max(df_lines["GJ_alocado"].sum() * 0.0001, 0)  # 1% do total
-df_lines = df_lines[df_lines["GJ_alocado"] >= threshold].copy()
+print(f"✓ Checkpoint salvo: {checkpoint_file}")
 
-# (alternativa) manter top N por planta:
-# df_lines = (df_lines.sort_values("GJ_alocado", ascending=False)
-#                    .groupby("Name").head(10).reset_index(drop=True))
-
-# =========================
-# 3) Criar GeoDataFrame de linhas
-# =========================
-geoms = []
-rows = []
-
-for _, r in df_lines.iterrows():
-    p = r["Name"]
-    m = r["CD_MUN"]
-
-    if (p not in plant_pt) or (m not in mun_pt):
-        continue
-
-    line = LineString([mun_pt[m], plant_pt[p]])
-    geoms.append(line)
-
-    rows.append({
-        "Name": p,
-        "CD_MUN": m,
-        "GJ_alocado": float(r["GJ_alocado"]),
-        "dist_km": float(r["dist_km"]) if "dist_km" in r else np.nan,
-        "custo_total_R": float(r["custo_total_R"]) if "custo_total_R" in r else np.nan
-    })
-
-gdf_lines = gpd.GeoDataFrame(rows, geometry=geoms, crs="EPSG:4326")
-
-# =========================
-# 4) Mapa Folium
-# =========================
-# centro do mapa
-center = [gdf_fab_ll.geometry.y.mean(), gdf_fab_ll.geometry.x.mean()]
-m = folium.Map(location=center, zoom_start=4, tiles="CartoDB positron")
-
-# adicionar plantas (pontos)
-for _, row in gdf_fab_ll.iterrows():
-    folium.CircleMarker(
-        location=[row.geometry.y, row.geometry.x],
-        radius=5,
-        tooltip=row["Name"],
-        fill=True
-    ).add_to(m)
-
-# largura das linhas proporcional ao fluxo
-max_gj = gdf_lines["GJ_alocado"].max() if len(gdf_lines) else 1.0
-
-def line_style(feat):
-    gj = feat["properties"]["GJ_alocado"]
-    w = 1 + 6 * (gj / max_gj)  # escala simples
-    return {"weight": w, "opacity": 0.7}
-
-tooltip = folium.GeoJsonTooltip(
-    fields=["Name", "CD_MUN", "GJ_alocado", "dist_km", "custo_total_R"],
-    aliases=["Planta:", "Município:", "GJ alocado:", "Distância (km):", "Custo total (R$):"],
-    localize=True
-)
-
-folium.GeoJson(
-    gdf_lines,
-    name="Fluxos (município → planta)",
-    style_function=line_style,
-    tooltip=tooltip
-).add_to(m)
-
-folium.LayerControl().add_to(m)
-
-# salvar
-out_html = path + "/mapa_fluxos_municipio_planta.html"
-m.save(out_html)
-
-out_html
+print("\n" + "="*60)
+print("EXECUÇÃO FINALIZADA COM SUCESSO!")
+print("="*60)
